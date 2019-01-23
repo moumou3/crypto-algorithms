@@ -10,6 +10,7 @@
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #endif
 
 #define PAGESIZE 4096
@@ -34,9 +35,9 @@ int cuda_test_hash(unsigned int n, char *path)
 	CUcontext ctx;
 	CUfunction function;
 	CUmodule module;
-	CUdeviceptr a_dev, b_dev, c_dev, pass_dev;
+	CUdeviceptr text1_dev, b_dev, c_dev, pass_dev;
 	unsigned char pass = 0x1;
-	unsigned int *a = (unsigned int *) malloc (PAGESIZE);
+	unsigned char *a = (unsigned char*) malloc (PAGESIZE);
 	unsigned int *b = (unsigned int *) malloc (n*n * sizeof(unsigned int));
 	unsigned int *c = (unsigned int *) malloc (n*n * sizeof(unsigned int));
 	int block_x, block_y, grid_x, grid_y;
@@ -102,7 +103,7 @@ int cuda_test_hash(unsigned int n, char *path)
 		printf("cuModuleLoad() failed\n");
 		return -1;
 	}
-	res = cuModuleGetFunction(&function, module, "_Z3addPjS_S_j");
+	res = cuModuleGetFunction(&function, module, "gpusha1");
 	if (res != CUDA_SUCCESS) {
 		printf("cuModuleGetFunction() failed\n");
 		return -1;
@@ -123,7 +124,7 @@ int cuda_test_hash(unsigned int n, char *path)
 		return -1;
 	}
 
-        res = cuMemAlloc(&pass, sizeof(unsigned char));
+        res = cuMemAlloc(&pass_dev, sizeof(unsigned char));
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemAlloc (c) failed\n");
 		return -1;
@@ -131,7 +132,7 @@ int cuda_test_hash(unsigned int n, char *path)
 	gettimeofday(&tv_data_init_start, NULL);
 
 	/* initialize A[] & B[] */
-        memset(a, 0x5, PAGE_SIZE);
+        memset(a, 0x5, PAGESIZE);
         
 
 
@@ -191,6 +192,7 @@ int cuda_test_hash(unsigned int n, char *path)
 	gettimeofday(&tv_d2h_start, NULL);
 	/* download c[] */
 	res = cuMemcpyDtoH(&pass, pass_dev, sizeof(unsigned char));
+        printf("pass hash value 0x%x \n", pass);
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemcpyDtoH (c) failed: res = %lu\n", (unsigned long)res);
 		return -1;
@@ -200,19 +202,14 @@ int cuda_test_hash(unsigned int n, char *path)
 
 	gettimeofday(&tv_close_start, NULL);
 
-	res = cuMemFree(a_dev);
+	res = cuMemFree(text1_dev);
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemFree (a) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
-	res = cuMemFree(b_dev);
+	res = cuMemFree(pass_dev);
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemFree (b) failed: res = %lu\n", (unsigned long)res);
-		return -1;
-	}
-	res = cuMemFree(c_dev);
-	if (res != CUDA_SUCCESS) {
-		printf("cuMemFree (c) failed: res = %lu\n", (unsigned long)res);
+		printf("cuMemFree (pass_dev) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
 
@@ -275,7 +272,6 @@ int cuda_test_hash(unsigned int n, char *path)
 	printf("DataRead: %f\n", data_read);
 	printf("Close: %f\n", close_gpu);
 	printf("Total: %f\n", total);
-        printf("pass hash value %s \n", pass==0x3 ? "ok":"ng");
 
 	return 0;
 }

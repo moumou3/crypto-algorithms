@@ -16,7 +16,7 @@ typedef struct {
 #define SHA1_BLOCK_SIZE 20              // SHA1 outputs a 20 byte digest
 #define PAGE_SIZE 4096
 
-void sha1_init(SHA1_CTX *ctx)
+__device__ void sha1_init(SHA1_CTX *ctx)
 {
 	ctx->datalen = 0;
 	ctx->bitlen = 0;
@@ -31,7 +31,7 @@ void sha1_init(SHA1_CTX *ctx)
 	ctx->k[3] = 0xca62c1d6;
 }
 
-void sha1_transform(SHA1_CTX *ctx, const BYTE data[])
+__device__ void sha1_transform(SHA1_CTX *ctx, const BYTE data[])
 {
 	WORD a, b, c, d, e, i, j, t, m[80];
 
@@ -88,7 +88,7 @@ void sha1_transform(SHA1_CTX *ctx, const BYTE data[])
 	ctx->state[4] += e;
 }
 
-void sha1_update(SHA1_CTX *ctx, const BYTE data[], size_t len)
+__device__ void sha1_update(SHA1_CTX *ctx, const BYTE data[], size_t len)
 {
 	size_t i;
 
@@ -103,7 +103,7 @@ void sha1_update(SHA1_CTX *ctx, const BYTE data[], size_t len)
 	}
 }
 
-void sha1_final(SHA1_CTX *ctx, BYTE hash[])
+__device__ void sha1_final(SHA1_CTX *ctx, BYTE hash[])
 {
 	WORD i;
 
@@ -148,28 +148,27 @@ void sha1_final(SHA1_CTX *ctx, BYTE hash[])
 }
 
 
-__global__
+extern "C" __global__
 void gpusha1(unsigned char* text1, unsigned char* pass,  int text_num) {
-{
-    int thx = blockIdx.x * blockDim.x + threadIdx.x;
-    int i;
-    unsigned char anshash[SHA1_BLOCK_SIZE] = {0x73, 0x2f, 0x20, 0x71, 0x22, 0x21, 0x18, 0x5f, 0x27, 0xd, 0xcd, 0xef, 0x18, 0x7b, 0x1b, 0xae, 0x53, 0x72, 0x15, 0x71};
-    SHA1_CTX ctx;
-    BYTE buf[SHA1_BLOCK_SIZE];
+  int thx = blockIdx.x * blockDim.x + threadIdx.x;
+  int i;
+  unsigned char anshash[SHA1_BLOCK_SIZE] = {0x73, 0x2f, 0x20, 0x71, 0x22, 0x21, 0x18, 0x5f, 0x27, 0xd, 0xcd, 0xef, 0x18, 0x7b, 0x1b, 0xae, 0x53, 0x72, 0x15, 0x71};
+  SHA1_CTX ctx;
+  BYTE buf[SHA1_BLOCK_SIZE];
 
-    if (thx == 0) {
-      sha1_init(&ctx);
-      sha1_update(&ctx, text1, PAGE_SIZE);
-      sha1_final(&ctx, buf);
-      *pass = 0x3;
-      for (i = 0; i < SHA1_BLOCK_SIZE; i++) {
+  if (thx == 0) {
+    sha1_init(&ctx);
+    sha1_update(&ctx, text1, PAGE_SIZE);
+    sha1_final(&ctx, buf);
+    *pass = 0x5;
+    for (i = 0; i < SHA1_BLOCK_SIZE; i++) {
 
-	if (anshash[i] != buf[i]) {
-          //*pass = *((unsigned char*)pg_addrs[thx]);
-	  *pass = i;
-	  break;
-	}
-
+      if (anshash[i] != buf[i]) {
+        //*pass = *((unsigned char*)pg_addrs[thx]);
+	//*pass = i;
+	break;
       }
+
     }
+  }
 }

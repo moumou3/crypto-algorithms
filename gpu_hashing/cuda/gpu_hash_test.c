@@ -34,8 +34,9 @@ int cuda_test_madd(unsigned int n, char *path)
 	CUcontext ctx;
 	CUfunction function;
 	CUmodule module;
-	CUdeviceptr a_dev, b_dev, c_dev;
-	unsigned int *a = (unsigned int *) malloc (n*n * sizeof(unsigned int));
+	CUdeviceptr a_dev, b_dev, c_dev, pass_dev;
+	unsigned char pass = 0x1;
+	unsigned int *a = (unsigned int *) malloc (PAGESIZE);
 	unsigned int *b = (unsigned int *) malloc (n*n * sizeof(unsigned int));
 	unsigned int *c = (unsigned int *) malloc (n*n * sizeof(unsigned int));
 	int block_x, block_y, grid_x, grid_y;
@@ -116,33 +117,29 @@ int cuda_test_madd(unsigned int n, char *path)
 
 
 	/* a[] */
-	res = cuMemAlloc(&text1, PAGESIZE);
+	res = cuMemAlloc(&text1_dev, PAGESIZE);
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemAlloc (a) failed\n");
 		return -1;
 	}
 
+        res = cuMemAlloc(&pass, sizeof(unsigned char));
+	if (res != CUDA_SUCCESS) {
+		printf("cuMemAlloc (c) failed\n");
+		return -1;
+	}
 	gettimeofday(&tv_data_init_start, NULL);
 
 	/* initialize A[] & B[] */
-	for (i = 0; i < n; i++) {
-		idx = i*n;
-		for(j = 0; j < n; j++) {			
-			a[idx++] = i;
-		}
-	}
+        memset(a, 0x5, PAGE_SIZE);
+        
 
 
 	gettimeofday(&tv_h2d_start, NULL);
 	/* upload a[] and b[] */
-	res = cuMemcpyHtoD(a_dev, a, PAGESIZE);
+	res = cuMemcpyHtoD(text1_dev, a, PAGESIZE);
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemcpyHtoD (a) failed: res = %lu\n", (unsigned long)res);
-		return -1;
-	}
-	res = cuMemcpyHtoD(b_dev, b, PAGESIZE);
-	if (res != CUDA_SUCCESS) {
-		printf("cuMemcpyHtoD (b) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
 	gettimeofday(&tv_h2d_end, NULL);
@@ -150,42 +147,32 @@ int cuda_test_madd(unsigned int n, char *path)
 	gettimeofday(&tv_conf_kern_start, NULL);
 
 	/* set kernel parameters */
-	res = cuParamSeti(function, 0, a_dev);	
+	res = cuParamSeti(function, 0, text1_dev);	
 	if (res != CUDA_SUCCESS) {
 		printf("cuParamSeti (a) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
-	res = cuParamSeti(function, 4, a_dev >> 32);
+	res = cuParamSeti(function, 4, text1_dev >> 32);
 	if (res != CUDA_SUCCESS) {
 		printf("cuParamSeti (a) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
-	res = cuParamSeti(function, 8, b_dev);
-	if (res != CUDA_SUCCESS) {
-		printf("cuParamSeti (b) failed: res = %lu\n", (unsigned long)res);
-		return -1;
-	}
-	res = cuParamSeti(function, 12, b_dev >> 32);
-	if (res != CUDA_SUCCESS) {
-		printf("cuParamSeti (b) failed: res = %lu\n", (unsigned long)res);
-		return -1;
-	}
-	res = cuParamSeti(function, 16, c_dev);
+	res = cuParamSeti(function, 8, pass_dev);
 	if (res != CUDA_SUCCESS) {
 		printf("cuParamSeti (c) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
-	res = cuParamSeti(function, 20, c_dev >> 32);
+	res = cuParamSeti(function, 12, pass_dev >> 32);
 	if (res != CUDA_SUCCESS) {
 		printf("cuParamSeti (c) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
-	res = cuParamSeti(function, 24, n);
+	res = cuParamSeti(function, 16, n);
 	if (res != CUDA_SUCCESS) {
 		printf("cuParamSeti (c) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
-	res = cuParamSetSize(function, 28);
+	res = cuParamSetSize(function, 20);
 	if (res != CUDA_SUCCESS) {
 		printf("cuParamSetSize failed: res = %lu\n", (unsigned long)res);
 		return -1;
@@ -203,20 +190,13 @@ int cuda_test_madd(unsigned int n, char *path)
 
 	gettimeofday(&tv_d2h_start, NULL);
 	/* download c[] */
-	res = cuMemcpyDtoH(c, c_dev, n*n * sizeof(unsigned int));
+	res = cuMemcpyDtoH(&pass, pass_dev, sizeof(unsigned char));
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemcpyDtoH (c) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
 	gettimeofday(&tv_d2h_end, NULL);
 
-	/* Read back */
-	for (i = 0; i < n; i++) {
-		idx = i*n;
-		for(j = 0; j < n; j++) {			
-			dummy_c = c[idx++];
-		}
-	}
 
 	gettimeofday(&tv_close_start, NULL);
 
@@ -295,6 +275,7 @@ int cuda_test_madd(unsigned int n, char *path)
 	printf("DataRead: %f\n", data_read);
 	printf("Close: %f\n", close_gpu);
 	printf("Total: %f\n", total);
+        printf("pass hash value %s \n", pass==0x3 ? "ok":"ng");
 
 	return 0;
 }

@@ -160,12 +160,12 @@ void gpusha1(unsigned char* text1, unsigned char* pass,  int text_num) {
     sha1_init(&ctx);
     sha1_update(&ctx, text1, PAGE_SIZE);
     sha1_final(&ctx, buf);
-    *pass = 0x5;
+    *pass = 0x4;
     for (i = 0; i < SHA1_BLOCK_SIZE; i++) {
 
       if (anshash[i] != buf[i]) {
         //*pass = *((unsigned char*)pg_addrs[thx]);
-	//*pass = i;
+	*pass = i;
 	break;
       }
 

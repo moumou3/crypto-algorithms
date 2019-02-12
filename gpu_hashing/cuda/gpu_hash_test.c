@@ -172,7 +172,7 @@ int cuda_test_hash(unsigned int n, char *path)
 
 	tv_exec_start = rdtsc();
 	/* launch the kernel */
-	res = cuLaunchGrid(function, grid_x, grid_y);
+	res = cuLaunchGrid(function, grid_x, 1);
 	if (res != CUDA_SUCCESS) {
 		printf("cuLaunchGrid failed: res = %lu\n", (unsigned long)res);
 		return -1;

@@ -149,26 +149,14 @@ __device__ void sha1_final(SHA1_CTX *ctx, BYTE hash[])
 
 
 extern "C" __global__
-void gpusha1(unsigned char* text1, unsigned char* pass,  int text_num) {
+void gpusha1(unsigned char* text1, unsigned char* anshash,  int text_num) {
   int thx = blockIdx.x * blockDim.x + threadIdx.x;
   int i;
-  unsigned char anshash[SHA1_BLOCK_SIZE] = {0x73, 0x2f, 0x20, 0x71, 0x22, 0x21, 0x18, 0x5f, 0x27, 0xd, 0xcd, 0xef, 0x18, 0x7b, 0x1b, 0xae, 0x53, 0x72, 0x15, 0x71};
   SHA1_CTX ctx;
-  BYTE buf[SHA1_BLOCK_SIZE];
 
   if (thx < text_num) {
     sha1_init(&ctx);
     sha1_update(&ctx, text1+thx*PAGE_SIZE, PAGE_SIZE);
-    sha1_final(&ctx, buf);
-    *pass = 0x4;
-    for (i = 0; i < SHA1_BLOCK_SIZE; i++) {
-
-      if (anshash[i] != buf[i]) {
-        //*pass = *((unsigned char*)pg_addrs[thx]);
-	*pass = i;
-	break;
-      }
-
-    }
+    sha1_final(&ctx, anshash + thx*PAGE_SIZE);
   }
 }

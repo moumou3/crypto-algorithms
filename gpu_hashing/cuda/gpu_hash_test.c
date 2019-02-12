@@ -13,6 +13,7 @@
 #endif
 
 #define PAGESIZE 4096
+#define SHA1_BLOCK_SIZE 20
 /* tvsub: ret = x - y. */
 
 static inline unsigned long long rdtsc() {
@@ -23,6 +24,8 @@ static inline unsigned long long rdtsc() {
   return ret;
 }
 
+unsigned char anshash[SHA1_BLOCK_SIZE] = {0x73, 0x2f, 0x20, 0x71, 0x22, 0x21, 0x18, 0x5f, 0x27, 0xd, 0xcd, 0xef, 0x18, 0x7b, 0x1b, 0xae, 0x53, 0x72, 0x15, 0x71};
+
 int cuda_test_hash(unsigned int n, char *path)
 {
 	int i, j, idx;
@@ -31,11 +34,9 @@ int cuda_test_hash(unsigned int n, char *path)
 	CUcontext ctx;
 	CUfunction function;
 	CUmodule module;
-	CUdeviceptr text_dev, b_dev, c_dev, pass_dev;
-	unsigned char pass = 0x1;
+	CUdeviceptr text_dev, hashval_dev;
 	unsigned char *text_host = (unsigned char*) malloc (PAGESIZE*n);
-	unsigned int *b = (unsigned int *) malloc (n*n * sizeof(unsigned int));
-	unsigned int *c = (unsigned int *) malloc (n*n * sizeof(unsigned int));
+	unsigned char *hashval_host = (unsigned char*) malloc (SHA1_BLOCK_SIZE*n);
 	int block_x, block_y, grid_x, grid_y;
 	char fname[256];
 	unsigned long long tv_total_start, tv_total_end;
@@ -119,7 +120,7 @@ int cuda_test_hash(unsigned int n, char *path)
 		return -1;
 	}
 
-        res = cuMemAlloc(&pass_dev, sizeof(unsigned char));
+        res = cuMemAlloc(&hashval_dev, SHA1_BLOCK_SIZE * n);
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemAlloc (c) failed\n");
 		return -1;
@@ -152,12 +153,12 @@ int cuda_test_hash(unsigned int n, char *path)
 		printf("cuParamSeti (a) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
-	res = cuParamSeti(function, 8, pass_dev);
+	res = cuParamSeti(function, 8, hashval_dev);
 	if (res != CUDA_SUCCESS) {
 		printf("cuParamSeti (c) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
-	res = cuParamSeti(function, 12, pass_dev >> 32);
+	res = cuParamSeti(function, 12, hashval_dev >> 32);
 	if (res != CUDA_SUCCESS) {
 		printf("cuParamSeti (c) failed: res = %lu\n", (unsigned long)res);
 		return -1;
@@ -185,8 +186,7 @@ int cuda_test_hash(unsigned int n, char *path)
 
 	tv_d2h_start = rdtsc();
 	/* download c[] */
-	res = cuMemcpyDtoH(&pass, pass_dev, sizeof(unsigned char));
-        printf("pass hash value 0x%x \n", pass);
+	res = cuMemcpyDtoH(hashval_host, hashval_dev, SHA1_BLOCK_SIZE * n);
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemcpyDtoH (c) failed: res = %lu\n", (unsigned long)res);
 		return -1;
@@ -201,9 +201,9 @@ int cuda_test_hash(unsigned int n, char *path)
 		printf("cuMemFree (a) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
-	res = cuMemFree(pass_dev);
+	res = cuMemFree(hashval_dev);
 	if (res != CUDA_SUCCESS) {
-		printf("cuMemFree (pass_dev) failed: res = %lu\n", (unsigned long)res);
+		printf("cuMemFree (hashval_dev) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
 
@@ -220,8 +220,6 @@ int cuda_test_hash(unsigned int n, char *path)
 	}
 
 	free(text_host);
-	free(b);
-	free(c);
 
 	tv_total_end = rdtsc();
 
@@ -247,6 +245,17 @@ int cuda_test_hash(unsigned int n, char *path)
 	printf("DataRead: %llu\n", data_read);
 	printf("Close: %llu\n", close_gpu);
 	printf("Total: %llu\n", total);
+
+	for (i = 0; i < n; ++i) {
+          for (int j = 0; j < SHA1_BLOCK_SIZE; j++) {
+
+            if (anshash[j] != hashval_host[j + i*SHA1_BLOCK_SIZE]) {
+              printf("invalid hash value ");
+            }
+
+          }
+
+	}
 
 	return 0;
 }

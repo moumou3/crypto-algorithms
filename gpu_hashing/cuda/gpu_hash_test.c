@@ -196,7 +196,7 @@ int cuda_test_hash(unsigned int n, char *path)
 
 	tv_close_start = rdtsc();
 
-	res = cuMemFree(text1_dev);
+	res = cuMemFree(text_dev);
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemFree (a) failed: res = %lu\n", (unsigned long)res);
 		return -1;

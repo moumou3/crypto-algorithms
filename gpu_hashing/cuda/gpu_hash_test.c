@@ -31,9 +31,9 @@ int cuda_test_hash(unsigned int n, char *path)
 	CUcontext ctx;
 	CUfunction function;
 	CUmodule module;
-	CUdeviceptr text1_dev, b_dev, c_dev, pass_dev;
+	CUdeviceptr text_dev, b_dev, c_dev, pass_dev;
 	unsigned char pass = 0x1;
-	unsigned char *a = (unsigned char*) malloc (PAGESIZE);
+	unsigned char *text_host = (unsigned char*) malloc (PAGESIZE*n);
 	unsigned int *b = (unsigned int *) malloc (n*n * sizeof(unsigned int));
 	unsigned int *c = (unsigned int *) malloc (n*n * sizeof(unsigned int));
 	int block_x, block_y, grid_x, grid_y;
@@ -112,8 +112,8 @@ int cuda_test_hash(unsigned int n, char *path)
 	tv_mem_alloc_start = rdtsc();
 
 
-	/* a[] */
-	res = cuMemAlloc(&text1_dev, PAGESIZE);
+	/* text_dev[] */
+	res = cuMemAlloc(&text_dev, PAGESIZE*n);
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemAlloc (a) failed\n");
 		return -1;
@@ -126,13 +126,13 @@ int cuda_test_hash(unsigned int n, char *path)
 	}
 	tv_data_init_start = rdtsc();
 
-	/* initialize A[] & B[] */
-        memset(a, 0x5, PAGESIZE);
+	/* initialize hash value that is maybe uncontinuous*/
+        memset(text_host, 0x5, PAGESIZE*n);
 
 
 	tv_h2d_start = rdtsc();
-	/* upload a[] and b[] */
-	res = cuMemcpyHtoD(text1_dev, a, PAGESIZE);
+	/* upload hashes */
+	res = cuMemcpyHtoD(text_dev, text_host, PAGESIZE*n);
 	if (res != CUDA_SUCCESS) {
 		printf("cuMemcpyHtoD (a) failed: res = %lu\n", (unsigned long)res);
 		return -1;
@@ -142,12 +142,12 @@ int cuda_test_hash(unsigned int n, char *path)
 	tv_conf_kern_start = rdtsc();
 
 	/* set kernel parameters */
-	res = cuParamSeti(function, 0, text1_dev);
+	res = cuParamSeti(function, 0, text_dev);
 	if (res != CUDA_SUCCESS) {
 		printf("cuParamSeti (a) failed: res = %lu\n", (unsigned long)res);
 		return -1;
 	}
-	res = cuParamSeti(function, 4, text1_dev >> 32);
+	res = cuParamSeti(function, 4, text_dev >> 32);
 	if (res != CUDA_SUCCESS) {
 		printf("cuParamSeti (a) failed: res = %lu\n", (unsigned long)res);
 		return -1;

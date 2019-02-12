@@ -156,9 +156,9 @@ void gpusha1(unsigned char* text1, unsigned char* pass,  int text_num) {
   SHA1_CTX ctx;
   BYTE buf[SHA1_BLOCK_SIZE];
 
-  if (thx == 0) {
+  if (thx < text_num) {
     sha1_init(&ctx);
-    sha1_update(&ctx, text1, PAGE_SIZE);
+    sha1_update(&ctx, text1+thx*PAGE_SIZE, PAGE_SIZE);
     sha1_final(&ctx, buf);
     *pass = 0x4;
     for (i = 0; i < SHA1_BLOCK_SIZE; i++) {

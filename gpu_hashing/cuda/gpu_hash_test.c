@@ -219,7 +219,7 @@ int cuda_test_hash(unsigned int n, char *path)
 		return -1;
 	}
 
-	free(a);
+	free(text_host);
 	free(b);
 	free(c);
 

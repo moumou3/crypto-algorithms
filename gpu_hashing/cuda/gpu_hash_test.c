@@ -37,7 +37,7 @@ int cuda_test_hash(unsigned int n, char *path)
 	CUdeviceptr text_dev, hashval_dev;
 	unsigned char *text_host = (unsigned char*) malloc (PAGESIZE*n);
 	unsigned char *hashval_host = (unsigned char*) malloc (SHA1_BLOCK_SIZE*n);
-	int block_x, block_y, grid_x, grid_y;
+	int block_x, grid_x;
 	char fname[256];
 	unsigned long long tv_total_start, tv_total_end;
 	unsigned long long total;
@@ -61,17 +61,13 @@ int cuda_test_hash(unsigned int n, char *path)
 	unsigned int dummy_b, dummy_c;
 	
 
-	/* block_x * block_y should not exceed 512. */
+	/* block_x  should not exceed 512. */
 	block_x = n < 16 ? n : 16;
-	block_y = n < 16 ? n : 16;
 	grid_x = n / block_x;
 	if (n % block_x != 0)
 		grid_x++;
-	grid_y = n / block_y;
-	if (n % block_y != 0)
-		grid_y++;
-	printf("block = (%d, %d)\n", block_x, block_y);
-	printf("grid = (%d, %d)\n", grid_x, grid_y);
+	printf("block = (%d)\n", block_x);
+	printf("grid = (%d)\n", grid_x);
 
 	tv_total_start = rdtsc();
 
@@ -104,7 +100,7 @@ int cuda_test_hash(unsigned int n, char *path)
 		printf("cuModuleGetFunction() failed\n");
 		return -1;
 	}
-	res = cuFuncSetBlockShape(function, block_x, block_y, 1);
+	res = cuFuncSetBlockShape(function, block_x, 1, 1);
 	if (res != CUDA_SUCCESS) {
 		printf("cuFuncSetBlockShape() failed\n");
 		return -1;

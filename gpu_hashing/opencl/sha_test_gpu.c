@@ -101,7 +101,6 @@ int main(int argc, char *argv[]) {
 
   printf("tv_CrContext: %llu\n", tv_CrContext);
   printf("tv_CrKernel: %llu\n", tv_CrKernel);
-  printf("tv_CrKernel: %llu\n", tv_CrKernel);
   printf("ndrange_sub: %llu\n", ndrange_sub);
 
   for (i = 0; i < text_num; ++i) {

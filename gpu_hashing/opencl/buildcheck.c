@@ -24,7 +24,7 @@ void buildcheck(cl_device_id device_id, const char* options)
   // build
 
 
-  cl_int ret_val = clBuildProgram(program, 1, &device_id, options, NULL, NULL);
+  cl_int ret_val = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
 
 
 
@@ -73,7 +73,6 @@ int main(int argc, char *argv[])
 {
   char source[10] = "gpusha1.cl";
   char kern_name[10] = "gpusha1";
-  cl_program     program = NULL;
   cl_platform_id platform_id[MAX_PLATFORMS];
   cl_device_id   device_id[MAX_DEVICES];
   int device = 0;

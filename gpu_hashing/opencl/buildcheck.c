@@ -104,7 +104,6 @@ int main(int argc, char *argv[])
   context = clCreateContext(NULL, 1, &device_id[device], NULL, NULL, &ret);
   Queue = clCreateCommandQueue(context, device_id[device], 0, &ret);
   program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &ret);
-  program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &ret);
   buildcheck(device_id, "");
   return 0;
 }

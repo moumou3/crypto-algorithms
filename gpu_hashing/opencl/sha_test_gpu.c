@@ -39,7 +39,7 @@ int result;
 int *test;
 int lnum;
 
-int main(int argc, char *argv[])
+int main(int argc, char *argv[]) {
   int ret, fd;
   int platform = 0;
   int device = 0;

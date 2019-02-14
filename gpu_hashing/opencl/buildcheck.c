@@ -14,6 +14,8 @@
 #define MAX_DEVICES (10)
 #define MAX_SOURCE_SIZE (100000)
 
+#define CL_CHECK_ERROR(error)\
+  printf("error num %d", error);
 
 cl_program     program = NULL;
 void buildcheck(cl_device_id device_id, const char* options)

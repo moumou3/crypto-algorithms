@@ -24,7 +24,7 @@ void buildcheck(cl_device_id device_id, const char* options)
   // build
 
 
-  cl_int ret_val = clBuildProgram(program, 1, device_id, options, NULL, NULL);
+  cl_int ret_val = clBuildProgram(program, 1, &device_id, options, NULL, NULL);
 
 
 
@@ -48,7 +48,7 @@ void buildcheck(cl_device_id device_id, const char* options)
 
   CL_CHECK_ERROR(clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &ret_val_size));
 
-  char *build_log = calloc(ret_val_size, sizeof(char));
+  build_log = calloc(ret_val_size, sizeof(char));
 
   CL_CHECK_ERROR(clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, ret_val_size, build_log, NULL));
 
@@ -104,6 +104,6 @@ int main(int argc, char *argv[])
   context = clCreateContext(NULL, 1, &device_id[device], NULL, NULL, &ret);
   Queue = clCreateCommandQueue(context, device_id[device], 0, &ret);
   program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &ret);
-  buildcheck(device_id, "");
+  buildcheck(device_id[device], "");
   return 0;
 }

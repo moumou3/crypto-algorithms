@@ -16,11 +16,11 @@
 
 
 cl_program     program = NULL;
-inline void build(cl_device_id device_id, const char* options = "")
-
+inline void build(cl_device_id device_id, const char* options)
 {
 
   // build
+
 
   cl_int ret_val = clBuildProgram(program, 1, device_id, options, NULL, NULL);
 
@@ -72,6 +72,10 @@ int main(int argc, char *argv[])
   char source[10] = "gpusha1.cl";
   char kern_name[10] = "gpusha1";
   cl_program     program = NULL;
+  cl_platform_id platform_id[MAX_PLATFORMS];
+  cl_device_id   device_id[MAX_DEVICES];
+  int device = 0;
+  int platform = 0;
   cl_command_queue Queue;
   cl_kernel k_vadd;
   cl_context     context = NULL;
@@ -99,5 +103,6 @@ int main(int argc, char *argv[])
   Queue = clCreateCommandQueue(context, device_id[device], 0, &ret);
   program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &ret);
   program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &ret);
+  build(device_id, "");
   return 0;
 }

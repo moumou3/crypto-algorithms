@@ -149,13 +149,13 @@ __device__ void sha1_final(SHA1_CTX *ctx, BYTE hash[])
 
 
 extern "C" __global__
-void gpusha1(unsigned char* text1, unsigned char* anshash,  int text_num) {
+void gpusha1(unsigned char* text1, unsigned char* hashval,  int text_num) {
   int thx = blockIdx.x * blockDim.x + threadIdx.x;
   SHA1_CTX ctx;
 
   if (thx < text_num) {
     sha1_init(&ctx);
     sha1_update(&ctx, text1+thx*PAGE_SIZE, PAGE_SIZE);
-    sha1_final(&ctx, anshash + thx*SHA1_BLOCK_SIZE);
+    sha1_final(&ctx, hashval + thx*SHA1_BLOCK_SIZE);
   }
 }

@@ -206,9 +206,10 @@ static int setup_ocl(cl_uint platform, cl_uint device, char* msg)
   }
 
   // build
-  if (clBuildProgram(program, 1, &device_id[device], NULL, NULL, NULL) != CL_SUCCESS) {
+  ret = clBuildProgram(program, 1, &device_id[device], NULL, NULL, NULL);
+  if(ret != CL_SUCCESS) {
     sprintf(msg, "clBuildProgram() error");
-    return 1;
+    return -ret;
   }
 
   // kernel

@@ -48,7 +48,7 @@ void buildcheck(cl_device_id device_id, const char* options)
 
   CL_CHECK_ERROR(clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &ret_val_size));
 
-  build_log = (char*) malloc(ret_val_size+1);
+  char *build_log = calloc(ret_val_size, sizeof(char));
 
   CL_CHECK_ERROR(clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, ret_val_size, build_log, NULL));
 

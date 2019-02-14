@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
   source_str = (char *)malloc(MAX_SOURCE_SIZE * sizeof(char));
 
   if ((fp = fopen(source, "r")) == NULL) {
-    sprintf(msg, "kernel source open error");
+    printf("kernel source open error");
     return 1;
   }
   source_size = fread(source_str, 1, MAX_SOURCE_SIZE, fp);

@@ -46,6 +46,7 @@ int main(int argc, char *argv[]) {
   char msg[BUFSIZ];
   unsigned char* hashval;
   unsigned long long* pg_addrs;
+  int i;
   
 
   unsigned char *texts;
@@ -103,7 +104,7 @@ int main(int argc, char *argv[]) {
   printf("tv_CrKernel: %llu\n", tv_CrKernel);
   printf("ndrange_sub: %llu\n", ndrange_sub);
 
-  for (i = 0; i < n; ++i) {
+  for (i = 0; i < text_num; ++i) {
     for (int j = 0; j < SHA1_BLOCK_SIZE; j++) {
 
       if (anshash[j] != hashval[j + i*SHA1_BLOCK_SIZE]) {

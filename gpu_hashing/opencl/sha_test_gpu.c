@@ -7,6 +7,8 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <CL/cl.h>
+#include <sys/time.h>
+#include <time.h>
  
 
 
@@ -14,8 +16,18 @@
 #define MAX_DEVICES (10)
 #define MAX_SOURCE_SIZE (100000)
 #define PAGE_SIZE 4096
+#define SHA1_BLOCK_SIZE 20              // SHA1 outputs a 20 byte digest
 
+static inline unsigned long long rdtsc() {
+  unsigned long long ret;
 
+  __asm__ volatile ("rdtsc" : "=A" (ret));
+
+  return ret;
+}
+
+unsigned long long tv_CrContext, tv_CrKernel;
+unsigned char anshash[SHA1_BLOCK_SIZE] = {0x73, 0x2f, 0x20, 0x71, 0x22, 0x21, 0x18, 0x5f, 0x27, 0xd, 0xcd, 0xef, 0x18, 0x7b, 0x1b, 0xae, 0x53, 0x72, 0x15, 0x71};
 
 static int setup_ocl(cl_uint, cl_uint, char*);
 
@@ -27,16 +39,22 @@ int result;
 int *test;
 int lnum;
 
-int main(){
+int main(int argc, char *argv[])
   int ret, fd;
   int platform = 0;
   int device = 0;
   char msg[BUFSIZ];
-  unsigned char* pass;
+  unsigned char* hashval;
   unsigned long long* pg_addrs;
+  
 
-  unsigned char *text1;
-  int text_num = 1;
+  unsigned char *texts;
+  int text_num = atoi(argv[1]);
+
+  unsigned long long ndrange_start, ndrange_end, ndrange_sub;
+
+  size_t local_item_size = 256;
+  size_t global_item_size = ((10+ local_item_size - 1) / local_item_size) * local_item_size;
 
   
   //pg_addrs[1] = (unsigned long long)text2;
@@ -47,18 +65,23 @@ int main(){
   ret = setup_ocl((cl_uint)platform, (cl_uint)device, msg);
   if (ret > 0)
     printf("ret= %d , %s", ret, msg);
-  
-  pass = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, sizeof(int), 0);
-  pg_addrs = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, sizeof(unsigned long long)*text_num, 0);
-  text1 = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, PAGE_SIZE, 0);
-  memset(text1, 0x5, PAGE_SIZE);
 
-  pg_addrs[0] = (unsigned long long)text1;
-  *pass = 0x1;
+  
+  //--- original pages of text
+  texts = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, PAGE_SIZE * text_num, 0);
+  memset(texts, 0x5, PAGE_SIZE * text_num);
+  //-----
+
+  pg_addrs = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, sizeof(unsigned long long) * text_num, 0);
+  hashval = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, SHA1_BLOCK_SIZE * text_num, 0);
+
+  for (i = 0; i < text_num; ++i) {
+    pg_addrs[i] = (unsigned long long)(texts + i* PAGE_SIZE);
+  }
   
 
-  clSetKernelArgSVMPointer(k_vadd, 0, pass);
-  clSetKernelArgSVMPointer(k_vadd, 1, pg_addrs);
+  clSetKernelArgSVMPointer(k_vadd, 0, pg_addrs);
+  clSetKernelArgSVMPointer(k_vadd, 1, hashval);
   //clSetKernelArgSVMPointer(k_vadd, 2, (const void*)pg_addrs[0]);
   clSetKernelArg(k_vadd, 2, sizeof(text_num), &text_num);
 
@@ -66,15 +89,30 @@ int main(){
 
 
 
-  size_t local_item_size = 256;
-  size_t global_item_size = ((10+ local_item_size - 1) / local_item_size) * local_item_size;
+
+  ndrange_start = rdtsc();
   clEnqueueNDRangeKernel(Queue, k_vadd, 1, NULL, &global_item_size, &local_item_size, 0, NULL, NULL);
   clFinish(Queue);
-  printf("pass hash value %s \n", *pass==0x3 ? "ok":"ng");
+  ndrange_end= rdtsc();
+  ndrange_sub = ndrange_end - ndrange_start;
 
 
 
+  printf("tv_CrContext: %llu\n", tv_CrContext);
+  printf("tv_CrKernel: %llu\n", tv_CrKernel);
+  printf("tv_CrKernel: %llu\n", tv_CrKernel);
+  printf("ndrange_sub: %llu\n", ndrange_sub);
 
+  for (i = 0; i < n; ++i) {
+    for (int j = 0; j < SHA1_BLOCK_SIZE; j++) {
+
+      if (anshash[j] != hashval[j + i*SHA1_BLOCK_SIZE]) {
+        printf("invalid hash value ");
+      }
+
+    }
+
+  }
 
 
 
@@ -100,6 +138,8 @@ static int setup_ocl(cl_uint platform, cl_uint device, char* msg)
   size_t source_size, ret_size, size;
   cl_uint num_platforms, num_devices;
   cl_int ret;
+  unsigned long long tv_CrContext_start, tv_CrContext_end;
+  unsigned long long tv_CrKernel_start, tv_CrKernel_end;
 
   // alloc
   source_str = (char *)malloc(MAX_SOURCE_SIZE * sizeof(char));
@@ -139,7 +179,9 @@ static int setup_ocl(cl_uint platform, cl_uint device, char* msg)
   printf("svm cap, %d", caps);
 
   // context
+  tv_CrContext_start = rdtsc();
   context = clCreateContext(NULL, 1, &device_id[device], NULL, NULL, &ret);
+  tv_CrContext_end = rdtsc();
 
   // command queue
   Queue = clCreateCommandQueue(context, device_id[device], 0, &ret);
@@ -169,11 +211,17 @@ static int setup_ocl(cl_uint platform, cl_uint device, char* msg)
   }
 
   // kernel
+  tv_CrKernel_start = rdtsc();
   k_vadd = clCreateKernel(program, kern_name, &ret);
+  tv_CrKernel_end = rdtsc();
   if (ret != CL_SUCCESS) {
     sprintf(msg, "clCreateKernel() error");
     return 1;
   }
+
+  tv_CrContext = tv_CrContext_end - tv_CrContext_start;
+  tv_CrKernel = tv_CrKernel_end - tv_CrKernel_start;
+
 
   clReleaseProgram(program);
   free(source_str);

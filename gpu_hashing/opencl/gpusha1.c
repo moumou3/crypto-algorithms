@@ -144,27 +144,14 @@ void sha1_final(SHA1_CTX *ctx, BYTE hash[])
 	}
 }
 
-__kernel void gpusha1(__global unsigned char* pass, __global unsigned long long *pg_addrs,  int text_num) {
-	int i;
+__kernel void gpusha1(__global unsigned long long *pg_addrs, __global unsigned char* hashval, int text_num) {
 	int thx = get_global_id(0);
-	unsigned char anshash[SHA1_BLOCK_SIZE] = {0x73, 0x2f, 0x20, 0x71, 0x22, 0x21, 0x18, 0x5f, 0x27, 0xd, 0xcd, 0xef, 0x18, 0x7b, 0x1b, 0xae, 0x53, 0x72, 0x15, 0x71};
-          SHA1_CTX ctx;
-	  BYTE buf[SHA1_BLOCK_SIZE];
+        SHA1_CTX ctx;
       
         if (thx < text_num) {
 	  sha1_init(&ctx);
 	  sha1_update(&ctx, (unsigned char*)pg_addrs[thx], PAGE_SIZE);
-	  sha1_final(&ctx, buf);
-	  *pass = 0x3;
-	  for (i = 0; i < SHA1_BLOCK_SIZE; i++) {
-
-	    if (anshash[i] != buf[i]) {
-//	      *pass = *((unsigned char*)pg_addrs[thx]);
-	      *pass = i;
-	      break;
-	    }
-
-	  }
+          sha1_final(&ctx, hashval+ thx*SHA1_BLOCK_SIZE);
 	}
 }
 

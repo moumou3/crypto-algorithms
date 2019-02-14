@@ -16,7 +16,7 @@
 
 
 cl_program     program = NULL;
-inline void build(cl_device_id device_id, const char* options)
+void buildcheck(cl_device_id device_id, const char* options)
 {
 
   // build
@@ -103,6 +103,6 @@ int main(int argc, char *argv[])
   Queue = clCreateCommandQueue(context, device_id[device], 0, &ret);
   program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &ret);
   program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &ret);
-  build(device_id, "");
+  buildcheck(device_id, "");
   return 0;
 }

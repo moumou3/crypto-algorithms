@@ -100,7 +100,7 @@ void sha1_update(SHA1_CTX *ctx, const BYTE data[], size_t len)
 	}
 }
 
-void sha1_final(SHA1_CTX *ctx, BYTE hash[])
+void sha1_final(SHA1_CTX *ctx, __global BYTE hash[])
 {
 	WORD i;
 

@@ -151,7 +151,7 @@ __kernel void gpusha1(__global unsigned long long *pg_addrs, __global unsigned c
         if (thx < text_num) {
 	  sha1_init(&ctx);
 	  sha1_update(&ctx, (unsigned char*)pg_addrs[thx], PAGE_SIZE);
-          sha1_final(&ctx, (unsigned char*)(hashval+ thx*SHA1_BLOCK_SIZE));
+          sha1_final(&ctx, hashval+ thx*SHA1_BLOCK_SIZE);
 	}
 }
 

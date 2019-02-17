@@ -53,20 +53,19 @@ int main(int argc, char *argv[]) {
   int text_num = atoi(argv[1]);
 
   unsigned long long ndrange_start, ndrange_end, ndrange_sub;
+  unsigned long long alloc_start, alloc_end, alloc_sub;
 
   size_t local_item_size = 256;
   size_t global_item_size = ((10+ local_item_size - 1) / local_item_size) * local_item_size;
 
   
-  //pg_addrs[1] = (unsigned long long)text2;
-  //pg_addrs[2] = (unsigned long long)text3;
-
 
 
   ret = setup_ocl((cl_uint)platform, (cl_uint)device, msg);
   if (ret > 0)
     printf("ret= %d , %s", ret, msg);
 
+  alloc_start = rdtsc();
   
   //--- original pages of text
   texts = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, PAGE_SIZE * text_num, 0);
@@ -75,16 +74,24 @@ int main(int argc, char *argv[]) {
 
   pg_addrs = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, sizeof(unsigned long long) * text_num, 0);
   hashval = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, SHA1_BLOCK_SIZE * text_num, 0);
+  alloc_end = rdtsc();
+  alloc_sub = alloc_end - alloc_start;
 
   for (i = 0; i < text_num; ++i) {
     pg_addrs[i] = (unsigned long long)(texts + i* PAGE_SIZE);
   }
+  //memset(pg_addrs, 0xff, sizeof(unsigned long long)*text_num);
+  for (i = 0; i < SHA1_BLOCK_SIZE * text_num; ++i) {
+    hashval[i] = i;
+  }
   
+  //printf("pg_addrs[0]:%llx,[1]:%llx, pgaddr 0x%llx, 0x%llx\n", pg_addrs[0], pg_addrs[1], &pg_addrs[0], &pg_addrs[1]);
 
   clSetKernelArgSVMPointer(k_vadd, 0, pg_addrs);
   clSetKernelArgSVMPointer(k_vadd, 1, hashval);
-  //clSetKernelArgSVMPointer(k_vadd, 2, (const void*)pg_addrs[0]);
   clSetKernelArg(k_vadd, 2, sizeof(text_num), &text_num);
+
+  //clSetKernelExecInfo(k_vadd,  CL_KERNEL_EXEC_INFO_SVM_PTRS, text_num * sizeof(unsigned long long), pg_addrs);
 
 
 
@@ -102,12 +109,13 @@ int main(int argc, char *argv[]) {
   printf("tv_CrContext: %llu\n", tv_CrContext);
   printf("tv_CrKernel: %llu\n", tv_CrKernel);
   printf("ndrange_sub: %llu\n", ndrange_sub);
+  printf("alloc_sub: %llu\n", alloc_sub);
 
   for (i = 0; i < text_num; ++i) {
     for (int j = 0; j < SHA1_BLOCK_SIZE; j++) {
 
       if (anshash[j] != hashval[j + i*SHA1_BLOCK_SIZE]) {
-        printf("invalid hash value ");
+        printf("invalid hash value %d, %x, %x\n", i, anshash[j], hashval[j+i*SHA1_BLOCK_SIZE]);
       }
 
     }

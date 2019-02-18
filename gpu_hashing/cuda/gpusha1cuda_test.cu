@@ -152,10 +152,21 @@ extern "C" __global__
 void gpusha1(unsigned char* text1, unsigned char* hashval,  int text_num) {
   int thx = blockIdx.x * blockDim.x + threadIdx.x;
   SHA1_CTX ctx;
+  unsigned char text_dev[PAGE_SIZE];
+  unsigned char hashval_dev[SHA1_BLOCK_SIZE];
+  int i;
+
+
 
   if (thx < text_num) {
+    for (i = 0; i < PAGE_SIZE; ++i) {
+      text_dev[i] = text1[i + thx*PAGE_SIZE];
+    }
     sha1_init(&ctx);
-    sha1_update(&ctx, text1+thx*PAGE_SIZE, PAGE_SIZE);
-    sha1_final(&ctx, hashval + thx*SHA1_BLOCK_SIZE);
+    sha1_update(&ctx, text_dev, PAGE_SIZE);
+    sha1_final(&ctx, hashval_dev);
+    for (i = 0; i < SHA1_BLOCK_SIZE; ++i) {
+      hashval[i] = hashval_dev[i + thx*SHA1_BLOCK_SIZE];
+    }
   }
 }

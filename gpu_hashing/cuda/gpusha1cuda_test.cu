@@ -166,7 +166,7 @@ void gpusha1(unsigned char* text1, unsigned char* hashval,  int text_num) {
     sha1_update(&ctx, text_dev, PAGE_SIZE);
     sha1_final(&ctx, hashval_dev);
     for (i = 0; i < SHA1_BLOCK_SIZE; ++i) {
-      hashval[i] = hashval_dev[i + thx*SHA1_BLOCK_SIZE];
+      hashval[i + thx*SHA1_BLOCK_SIZE] = hashval_dev[i];
     }
   }
 }

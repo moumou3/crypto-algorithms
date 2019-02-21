@@ -17,5 +17,6 @@ int main(int argc, char *argv[])
   fread(addr1, addr1_size, 1, fp);
 
   madvise(addr1, addr1_size, MADV_MERGEABLE);
+  for(;;);
   return 0;
 }

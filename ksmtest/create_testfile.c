@@ -28,8 +28,7 @@ void createpage(uint32_t uint32_index, FILE *fp) {
 int main(int argc, char *argv[])
 {
   int i;
-  char filestr[20] = argv[4];
-  FILE *fp = fopen(filestr, "w");
+  FILE *fp = fopen(argv[4], "w");
   size_t filesize = !strcmp("1GB", argv[1]) ? oneGB: atoi(argv[1]);
   int sharing_potential = atoi(argv[2]) ;
   int distance = atoi(argv[3]);

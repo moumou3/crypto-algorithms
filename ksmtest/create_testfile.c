@@ -14,7 +14,7 @@ ffffffff0000... 000000010000...
 */
 
 #define PAGESIZE sysconf(_SC_PAGESIZE)
-#define oneGB 1 >> 30
+#define oneGB (1 << 30)
 
 void createpage(uint32_t uint32_index, FILE *fp) {
   int i;
@@ -28,6 +28,7 @@ void createpage(uint32_t uint32_index, FILE *fp) {
 int main(int argc, char *argv[])
 {
   int i;
+  char *filestr = strcat(strcat("testfile", argv[4]), ".txt");
   FILE *fp = fopen("testfile.txt", "w");
   size_t filesize = !strcmp("1GB", argv[1]) ? oneGB: atoi(argv[1]);
   int sharing_potential = atoi(argv[2]) ;
@@ -38,6 +39,7 @@ int main(int argc, char *argv[])
   int sh = 0;
   int sharable_pagenum = sharing_potential * filesize / 100 / PAGESIZE;
   
+
   
   if ((distance + 1) * sharing_potential > 100){
     printf("distance or sharing_potential is too learge\n");

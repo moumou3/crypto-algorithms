@@ -9,13 +9,12 @@
 
 int main(int argc, char *argv[])
 {
-  size_t addr1_size = PAGESIZE;
+  size_t addr1_size = 1 << 30; //1GB
   void* addr1 = memalign(PAGESIZE, addr1_size);
-  size_t addr2_size = 2 * PAGESIZE;
-  void* addr2 = memalign(PAGESIZE, addr2_size);
+  FILE*fp;
+  fp = fopen("testfile.txt", "r");
+  fread(addr1, addr1_size, 1, fp);
+
   madvise(addr1, addr1_size, MADV_MERGEABLE);
-  madvise(addr2, addr2_size, MADV_MERGEABLE);
-  memset(addr1, 0x5, addr1_size);
-  memset(addr2, 0x5, addr2_size);
   return 0;
 }

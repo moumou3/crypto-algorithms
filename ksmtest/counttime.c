@@ -2,6 +2,11 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
+float tv_sub(struct timeval before, struct timeval now){
+ return now.tv_sec - before.tv_sec + (float)(now.tv_usec - before.tv_usec) / 1000000;
+
+
+}
 int main(int argc, char *argv[])
 {
   struct timeval start, before, now;
@@ -14,13 +19,13 @@ int main(int argc, char *argv[])
 
   while(1) {
     gettimeofday(&now, NULL);
-    if (now.tv_sec - before.tv_sec > 1) {
+    if (tv_sub(before, now) > 1.) {
       fseek(fp, 0, SEEK_SET);
       fread(buffer, 10, 1, fp);
-      printf("%d: %s", now.tv_sec - start.tv_sec, buffer);
+      printf("%f: %s", tv_sub(start, now), buffer);
       gettimeofday(&before, NULL);
     }
-    usleep(800000);
+    usleep(500000);
   }
   
   return 0;

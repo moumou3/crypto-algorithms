@@ -33,7 +33,6 @@ int main(int argc, char *argv[])
   int d = 0;
   uint32_t uint32_index = 0;
   uint32_t uint32_max = ~uint32_index;
-  char buffer[PAGESIZE*10 + 1] = {0};
   int sh = 0;
   int sharable_pagenum = sharing_potential * filesize / 100 / PAGESIZE;
   

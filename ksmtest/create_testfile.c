@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <malloc.h>
+#include <string.h>
 
 /*
 ---file example----
@@ -13,6 +14,7 @@ ffffffff0000... 000000010000...
 */
 
 #define PAGESIZE sysconf(_SC_PAGESIZE)
+#define oneGB 1 >> 30
 
 void createpage(uint32_t uint32_index, FILE *fp) {
   int i;
@@ -27,7 +29,7 @@ int main(int argc, char *argv[])
 {
   int i;
   FILE *fp = fopen("testfile.txt", "w");
-  size_t filesize = atoi(argv[1]);
+  size_t filesize = !strcmp("1GB", argv[1]) ? oneGB: atoi(argv[1]);
   int sharing_potential = atoi(argv[2]) ;
   int distance = atoi(argv[3]);
   int d = 0;
@@ -35,6 +37,7 @@ int main(int argc, char *argv[])
   uint32_t uint32_max = ~uint32_index;
   int sh = 0;
   int sharable_pagenum = sharing_potential * filesize / 100 / PAGESIZE;
+  
   
   if ((distance + 1) * sharing_potential > 100){
     printf("distance or sharing_potential is too learge\n");

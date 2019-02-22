@@ -6,10 +6,11 @@
 
 
 #define PAGESIZE sysconf(_SC_PAGESIZE)
+#define oneGB (1 << 30)
 
 int main(int argc, char *argv[])
 {
-  size_t addr1_size = 1 << 30; //1GB
+  size_t addr1_size = !strcmp("1GB", argv[1]) ? oneGB: atoi(argv[1]);
   void* addr1 = memalign(PAGESIZE, addr1_size);
   FILE*fp;
 

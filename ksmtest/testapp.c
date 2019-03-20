@@ -3,6 +3,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <malloc.h>
+#include <string.h>
 
 
 #define PAGESIZE sysconf(_SC_PAGESIZE)
@@ -10,7 +11,7 @@
 
 int main(int argc, char *argv[])
 {
-  size_t addr1_size = !strcmp("1GB", argv[1]) ? oneGB: atoi(argv[1]);
+  size_t addr1_size = !strcmp("1GB", argv[2]) ? oneGB: atoi(argv[2]);
   void* addr1 = memalign(PAGESIZE, addr1_size);
   FILE*fp;
 

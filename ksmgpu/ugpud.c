@@ -29,6 +29,7 @@ cl_command_queue Queue;
 cl_kernel k_vadd;
 cl_context     context = NULL;
 size_t memsize;
+int ret;
 
 static int setup_ocl(cl_uint platform, cl_uint device, char* msg);
 
@@ -36,6 +37,7 @@ int main(int argc, char *argv[])
 {
   int *mapped_input;
   int *mapped_input2;
+  char msg[100];
   int *sum;
   ret = setup_ocl(0, 0, msg);
   memsize = sizeof(int) * 100;
@@ -46,9 +48,11 @@ int main(int argc, char *argv[])
   mapped_input2[0] = 2;
   sum[0] = 0;
 
+  int packet_num = 3;
   clSetKernelArgSVMPointer(k_vadd, 0, mapped_input);
   clSetKernelArgSVMPointer(k_vadd, 1, mapped_input2);
   clSetKernelArgSVMPointer(k_vadd, 2, sum);
+  clSetKernelArg(k_vadd, 3, sizeof(packet_num), &packet_num);
   //madvise(mapped_input, memsize, MADV_UGPUD); 
   int count;
   while (1) {
@@ -58,7 +62,7 @@ int main(int argc, char *argv[])
     if (mapped_input[0] != 0) {
       //remapping by kernel complete or processing
       //now debugging instead of gpu computing
-      printf("mapped_input[0]", mapped_input[0]);
+      printf("mapped_input[0]%d", mapped_input[0]);
       break;
       
     }
@@ -67,7 +71,7 @@ int main(int argc, char *argv[])
   }
 
   size_t local_item_size = 256;
-  size_t global_item_size = ((10+ local_item_size - 1) / local_item_size) * local_item_size;
+  size_t global_item_size = 1;
   clEnqueueNDRangeKernel(Queue, k_vadd, 1, NULL, &global_item_size, &local_item_size, 0, NULL, NULL);
   clFinish(Queue);
   printf("sum %d", sum[0]); 
@@ -88,7 +92,7 @@ static int setup_ocl(cl_uint platform, cl_uint device, char* msg)
   FILE *fp;
   char source[10] = "madd.cl";
   char kern_name[10] = "madd";
-  char source_str[MAX_SOURCE_SIZE];
+  char *source_str;
   char str[BUFSIZ];
   size_t source_size, ret_size, size;
   cl_uint num_platforms, num_devices;
@@ -99,6 +103,7 @@ static int setup_ocl(cl_uint platform, cl_uint device, char* msg)
   cl_device_svm_capabilities caps;
   int svmCoarse, svmFineBuffer, svmFineSystem, svmAtomics;
 
+  source_str = (char*)malloc(MAX_SOURCE_SIZE*sizeof(char));
 
   // platform
   clGetPlatformIDs(MAX_PLATFORMS, platform_id, &num_platforms);

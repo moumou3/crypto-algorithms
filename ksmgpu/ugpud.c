@@ -38,7 +38,11 @@ int main(int argc, char *argv[])
   int *mapped_input;
   int *mapped_input2;
   char msg[100];
+  int packet_num = 3;
   int *sum;
+  size_t local_item_size = 256;
+  size_t global_item_size = 1;
+
   ret = setup_ocl(0, 0, msg);
   memsize = sizeof(int) * 100;
   mapped_input = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS, memsize, 0);
@@ -48,7 +52,6 @@ int main(int argc, char *argv[])
   mapped_input2[0] = 2;
   sum[0] = 0;
 
-  int packet_num = 3;
   clSetKernelArgSVMPointer(k_vadd, 0, mapped_input);
   clSetKernelArgSVMPointer(k_vadd, 1, mapped_input2);
   clSetKernelArgSVMPointer(k_vadd, 2, sum);
@@ -70,8 +73,6 @@ int main(int argc, char *argv[])
     count++;
   }
 
-  size_t local_item_size = 256;
-  size_t global_item_size = 1;
   clEnqueueNDRangeKernel(Queue, k_vadd, 1, NULL, &global_item_size, &local_item_size, 0, NULL, NULL);
   clFinish(Queue);
   printf("sum %d", sum[0]); 

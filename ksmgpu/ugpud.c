@@ -23,6 +23,7 @@ static inline unsigned long long rdtsc() {
 #define MAX_PLATFORMS (10)
 #define MAX_DEVICES (10)
 #define MAX_SOURCE_SIZE (100000)
+#define SHA1_BLOCK_SIZE 20              // SHA1 outputs a 20 byte digest
 
 int fd;
 cl_command_queue Queue;
@@ -31,41 +32,51 @@ cl_context     context = NULL;
 size_t memsize;
 int ret;
 
+// ans hash for all 0x5 page
+unsigned char anshash[SHA1_BLOCK_SIZE] = {0x73, 0x2f, 0x20, 0x71, 0x22, 0x21, 0x18, 0x5f, 0x27, 0xd, 0xcd, 0xef, 0x18, 0x7b, 0x1b, 0xae, 0x53, 0x72, 0x15, 0x71};
+
 static int setup_ocl(cl_uint platform, cl_uint device, char* msg);
 
 int main(int argc, char *argv[])
 {
-  int *mapped_input;
-  int *mapped_input2;
+  char *mapped_input;
   char msg[100];
   int packet_num = 3;
   int *sum;
   size_t local_item_size = 256;
   size_t global_item_size = 1;
+  long pgsize = sysconf(_SC_PAGESIZE); 
+  size_t hashsize;
+  int batchnum = 64;
 
   ret = setup_ocl(0, 0, msg);
-  memsize = sizeof(int) * 100;
-  mapped_input = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS, memsize, 0);
-  mapped_input2 = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS, memsize, 0);
-  sum = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS, memsize, 0);
-  mapped_input[0] = 1;
-  mapped_input2[0] = 2;
-  sum[0] = 0;
+  memsize = pgsize * batchnum;
+  hashsize = SHA1_BLOCK_SIZE * batchnum;
+  mapped_input = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS, memsize + 1, 0);
+  memset(mapped_input, 0x5, memsize);
+
+  hashval = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS, hashsize, 0);
+  //madvise(mapped_input, memsize, MADV_UGPUD); 
+
+  //memsize byte means the flag of mapping complete
+  mapped_input[memsize] = 0;
+  //expr start by 0x1
+  mapped_input[memsize] = 0x1;
 
   clSetKernelArgSVMPointer(k_vadd, 0, mapped_input);
-  clSetKernelArgSVMPointer(k_vadd, 1, mapped_input2);
-  clSetKernelArgSVMPointer(k_vadd, 2, sum);
-  clSetKernelArg(k_vadd, 3, sizeof(packet_num), &packet_num);
-  //madvise(mapped_input, memsize, MADV_UGPUD); 
+  clSetKernelArgSVMPointer(k_vadd, 1, hashval);
+  clSetKernelArg(k_vadd, 2, sizeof(batchnum), &batchnum);
   int count;
   while (1) {
     if (count == 10) {
       break;
     }
-    if (mapped_input[0] != 0) {
+    if (mapped_input[memsize] == 0x1) {
       //remapping by kernel complete or processing
       //now debugging instead of gpu computing
       printf("mapped_input[0]%d", mapped_input[0]);
+      clEnqueueNDRangeKernel(Queue, k_vadd, 1, NULL, &global_item_size, &local_item_size, 0, NULL, NULL);
+      clFinish(Queue);
       break;
       
     }
@@ -73,9 +84,9 @@ int main(int argc, char *argv[])
     count++;
   }
 
-  clEnqueueNDRangeKernel(Queue, k_vadd, 1, NULL, &global_item_size, &local_item_size, 0, NULL, NULL);
-  clFinish(Queue);
-  printf("sum %d", sum[0]); 
+  printf("gpu complete %x", mapped_input[memsize]); 
+  printf("hash result 0x%x",hashval[0]); 
+
   clReleaseKernel(k_vadd);
   clReleaseCommandQueue(Queue);
   clReleaseContext(context);

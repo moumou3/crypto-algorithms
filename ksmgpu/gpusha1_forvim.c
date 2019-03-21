@@ -144,7 +144,7 @@ void sha1_final(SHA1_CTX *ctx, BYTE hash[])
 	}
 }
 
-__kernel void gpusha1(__global unsigned long *pg_addrs, __global unsigned char* hashval, int text_num) {
+__kernel void gpusha1(__global unsigned char* mapped_input, __global unsigned char* hashval, int batchnum) {
 	int thx = get_global_id(0);
         SHA1_CTX ctx;
         int i;
@@ -152,11 +152,10 @@ __kernel void gpusha1(__global unsigned long *pg_addrs, __global unsigned char* 
         unsigned char hashval_dev[SHA1_BLOCK_SIZE];
       
 
-        if (thx < text_num  ) {
+        if (thx < batchnum) {
 
-          __global unsigned char *pg_addr = pg_addrs[thx];
           for (i = 0; i < PAGE_SIZE; i++) {
-              text_dev[i] = pg_addr[i];  
+              text_dev[i] = mapped_input[i + thx * PAGE_SIZE];  
           }
 	  sha1_init(&ctx);
 	  sha1_update(&ctx, text_dev, PAGE_SIZE);
@@ -165,6 +164,8 @@ __kernel void gpusha1(__global unsigned long *pg_addrs, __global unsigned char* 
             *(hashval +thx * SHA1_BLOCK_SIZE + i) = hashval_dev[i];  
             //debug *(hashval +thx * SHA1_BLOCK_SIZE + i) = (unsigned long)pg_addrs[thx] >> 8*i;  
           }
+          if (thx == 0)
+           mapped_input[batchnum * PAGE_SIZE] = 0x2;
 
           
 

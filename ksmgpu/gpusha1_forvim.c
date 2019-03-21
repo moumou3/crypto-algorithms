@@ -164,11 +164,11 @@ __kernel void gpusha1(__global unsigned char* mapped_input, __global unsigned ch
             *(hashval +thx * SHA1_BLOCK_SIZE + i) = hashval_dev[i];  
             //debug *(hashval +thx * SHA1_BLOCK_SIZE + i) = (unsigned long)pg_addrs[thx] >> 8*i;  
           }
-          if (thx == 0)
-           mapped_input[batchnum * PAGE_SIZE] = 0x2;
 
           
 
 	}
+        if (thx == 0)
+          mapped_input[PAGE_SIZE * batchnum] = 0x2;
 }
 

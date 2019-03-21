@@ -39,10 +39,9 @@ static int setup_ocl(cl_uint platform, cl_uint device, char* msg);
 
 int main(int argc, char *argv[])
 {
-  char *mapped_input;
+  unsigned char *mapped_input;
+  unsigned char *hashval;
   char msg[100];
-  int packet_num = 3;
-  int *sum;
   size_t local_item_size = 256;
   size_t global_item_size = 1;
   long pgsize = sysconf(_SC_PAGESIZE); 
@@ -50,12 +49,14 @@ int main(int argc, char *argv[])
   int batchnum = 64;
 
   ret = setup_ocl(0, 0, msg);
+  if (ret != 0)
+    printf("msg %s", msg);
   memsize = pgsize * batchnum;
   hashsize = SHA1_BLOCK_SIZE * batchnum;
   mapped_input = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS, memsize + 1, 0);
   memset(mapped_input, 0x5, memsize);
-
   hashval = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS, hashsize, 0);
+  memset(hashval, 0x0, hashsize);
   //madvise(mapped_input, memsize, MADV_UGPUD); 
 
   //memsize byte means the flag of mapping complete
@@ -102,8 +103,8 @@ static int setup_ocl(cl_uint platform, cl_uint device, char* msg)
   cl_device_id   device_id[MAX_DEVICES];
 
   FILE *fp;
-  char source[10] = "madd.cl";
-  char kern_name[10] = "madd";
+  char source[20] = "gpusha1.cl";
+  char kern_name[10] = "gpusha1";
   char *source_str;
   char str[BUFSIZ];
   size_t source_size, ret_size, size;

@@ -46,23 +46,24 @@ int main(int argc, char *argv[])
   size_t global_item_size = 1;
   long pgsize = sysconf(_SC_PAGESIZE); 
   size_t hashsize;
-  int batchnum = 64;
+  int maxpagenum = 256;
+  unsigned char mapped_flag = 0;
 
   ret = setup_ocl(0, 0, msg);
   if (ret != 0)
     printf("msg %s", msg);
-  memsize = pgsize * batchnum;
-  hashsize = SHA1_BLOCK_SIZE * batchnum;
+  memsize = pgsize * maxpagenum;
+  hashsize = SHA1_BLOCK_SIZE * maxpagenum;
   mapped_input = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS, memsize + 1, 0);
   memset(mapped_input, 0x5, memsize);
   hashval = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS, hashsize, 0);
   memset(hashval, 0x0, hashsize);
-  //madvise(mapped_input, memsize, MADV_UGPUD); 
+  //madvise(&mapped_flag, sizeof(int), MADV_UGPUD_FLAG);
+  //madvise(mapped_input, memsize, MADV_UGPUD_SVM); 
 
   //memsize byte means the flag of mapping complete
-  mapped_input[memsize] = 0;
-  //expr start by 0x1
-  mapped_input[memsize] = 0x1;
+  mapped_flag = 0x0;
+
 
   clSetKernelArgSVMPointer(k_vadd, 0, mapped_input);
   clSetKernelArgSVMPointer(k_vadd, 1, hashval);
@@ -72,7 +73,7 @@ int main(int argc, char *argv[])
     if (count == 10) {
       break;
     }
-    if (mapped_input[memsize] == 0x1) {
+    if (mapped_flag == 0x1) {
       //remapping by kernel complete or processing
       //now debugging instead of gpu computing
       printf("mapped_input[0]%d", mapped_input[0]);

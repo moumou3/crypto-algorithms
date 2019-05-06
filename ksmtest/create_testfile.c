@@ -40,14 +40,14 @@ int main(int argc, char *argv[])
   int variety;
 
   if (argc == 1)
-    printf("Usage:./createtest size sharing_potential/%% distance filename samepage_variety\n");
+    printf("Usage:./createtest size sharing_potential/%% distance samepage_variety filename \n");
 
-  fp = fopen(argv[4], "w");
+  fp = fopen(argv[5], "w");
   filesize = !strcmp("1GB", argv[1]) ? oneGB: atoi(argv[1]);
   sharing_potential = atoi(argv[2]) ;
   distance = atoi(argv[3]);
   sharable_pagenum = sharing_potential * filesize / 100 / PAGESIZE;
-  variety = atoi(argv[5]);
+  variety = atoi(argv[4]);
 
   if ((distance + 1) * sharing_potential > 100){
     printf("distance or sharing_potential is too learge\n");

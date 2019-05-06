@@ -15,6 +15,8 @@ int main(int argc, char *argv[])
   void* addr1 = memalign(PAGESIZE, addr1_size);
   FILE*fp;
 
+  printf("pagenum: %d\n", addr1_size / PAGESIZE);
+
   fp = fopen(argv[1], "r");
   fread(addr1, addr1_size, 1, fp);
 

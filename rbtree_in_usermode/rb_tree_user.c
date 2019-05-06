@@ -60,8 +60,6 @@ struct hash_node* hash_tree_search_insert(char *hash) {
 
   hash_node = kmalloc(sizeof(struct hash_node), GFP_KERNEL);
   if (hash_node) {
-    hash_node->root_stable_tree = kmalloc(sizeof(struct rb_root), GFP_KERNEL);
-    hash_node->root_unstable_tree = kmalloc(sizeof(struct rb_root), GFP_KERNEL);
     hash_node->root_stable_tree = RB_ROOT;
     hash_node->root_unstable_tree = RB_ROOT;
     hash_node->hash = hash;
@@ -76,9 +74,9 @@ struct hash_node* hash_tree_search_insert(char *hash) {
 int main() {
   struct rmap_item *rmap_item = argitem;
   struct page *page = argpage;
-  struct rb_node *root_stable_tree;
   struct page *kpage;
   struct stable_node stable_node;
+  struct hash_node *hash_node;
   hash_node = hash_tree_search_insert(hash);
   stable_node = page_stable_node(page);
   if (stable_node && rmap_item->head == stable_node) {

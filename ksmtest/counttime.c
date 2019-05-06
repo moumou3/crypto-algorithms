@@ -24,11 +24,13 @@ int main(int argc, char *argv[])
   fp3 = fopen("/sys/kernel/mm/ksm/full_scans", "r");
   fp4 = fopen("/sys/kernel/mm/ksm/pages_to_scan", "r");
   fp5 = fopen("/sys/kernel/mm/ksm/sleep_millisecs", "r");
+  fp6 = fopen("/sys/kernel/mm/ksm/run", "r");
   fread(buffer, 10, 1, fp4);
-  printf("pages_to_scan:%s\n", buffer);
+  printf("pages_to_scan:%s", buffer);
   fread(buffer, 10, 1, fp5);
-  printf("sleep_millisecs:%s\n\n", buffer);
-  printf("time, sharing, shared, full_scans\n");
+  printf("sleep_millisecs:%s", buffer);
+  fread(buffer, 10, 1, fp6);
+  printf("run:%s\n", buffer);
 
   gettimeofday(&start,  NULL);  
   gettimeofday(&before,  NULL);  
@@ -45,7 +47,7 @@ int main(int argc, char *argv[])
       fread(buffer, 10, 1, fp);
       fread(buffer2, 10, 1, fp2);
       fread(buffer3, 10, 1, fp3);
-      printf("%fs: %s %s %s", tv_sub(start, now), buffer, buffer2, buffer3);
+      printf("time %fs:\n sharing:%s shared:%s full_scans:%s", tv_sub(start, now), buffer, buffer2, buffer3);
       gettimeofday(&before, NULL);
     }
     usleep(500000);

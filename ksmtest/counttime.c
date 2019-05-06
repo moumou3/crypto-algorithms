@@ -18,6 +18,7 @@ int main(int argc, char *argv[])
   FILE *fp3;
   FILE *fp4;
   FILE *fp5;
+  FILE *fp6;
 
   fp = fopen("/sys/kernel/mm/ksm/pages_sharing", "r");
   fp2 = fopen("/sys/kernel/mm/ksm/pages_shared", "r");

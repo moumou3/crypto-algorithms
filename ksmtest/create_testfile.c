@@ -28,18 +28,27 @@ void createpage(uint32_t uint32_index, FILE *fp) {
 int main(int argc, char *argv[])
 {
   int i;
-  FILE *fp = fopen(argv[4], "w");
-  size_t filesize = !strcmp("1GB", argv[1]) ? oneGB: atoi(argv[1]);
-  int sharing_potential = atoi(argv[2]) ;
-  int distance = atoi(argv[3]);
+  FILE *fp;
+  size_t filesize;
+  int sharing_potential;
+  int distance;
   int d = 0;
   uint32_t uint32_index = 0;
   uint32_t uint32_max = ~uint32_index;
   int sh = 0;
-  int sharable_pagenum = sharing_potential * filesize / 100 / PAGESIZE;
-  
+  int sharable_pagenum;
+  int variety;
 
-  
+  if (argc == 1)
+    printf("Usage:./createtest size sharing_potential/%% distance filename samepage_variety\n");
+
+  fp = fopen(argv[4], "w");
+  filesize = !strcmp("1GB", argv[1]) ? oneGB: atoi(argv[1]);
+  sharing_potential = atoi(argv[2]) ;
+  distance = atoi(argv[3]);
+  sharable_pagenum = sharing_potential * filesize / 100 / PAGESIZE;
+  variety = atoi(argv[5]);
+
   if ((distance + 1) * sharing_potential > 100){
     printf("distance or sharing_potential is too learge\n");
     return 1;
@@ -47,7 +56,7 @@ int main(int argc, char *argv[])
 
   for (i = 0; i < filesize / PAGESIZE; ++i) {
     if (d == 0 && sh++ < sharable_pagenum) 
-      createpage(uint32_max, fp);
+      createpage(uint32_max - sh % variety, fp);
     else 
       createpage(uint32_index++, fp);
 

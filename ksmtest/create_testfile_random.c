@@ -29,9 +29,9 @@ int main(int argc, char *argv[])
   FILE *fp;
   char basename[30] =  "testfile_random";
 
-  printf("Usage: ./createfile_random size");
-  printf("create about %d page", filesize / PAGESIZE); 
-  printf("over 4M is expected for same page probability");
+  printf("Usage: ./createfile_random size\n");
+  printf("create about %d page\n", filesize / PAGESIZE); 
+  printf("over 4M is expected for same page probability\n");
 
   fp = fopen(strcat(basename, argv[1]), "w");
 

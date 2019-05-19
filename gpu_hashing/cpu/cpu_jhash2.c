@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <inttypes.h>
 #include "jhash.h"
+#include "xxhash.h"
 
 #define PAGESIZE sysconf(_SC_PAGESIZE)
 
@@ -15,9 +16,14 @@ static inline unsigned long long rdtsc() {
 }
 
 
-uint32_t calc_checksum(void* pgaddr) {
+uint32_t calc_checksum_jhash2(void *pgaddr) {
   uint32_t checksum;
   checksum = jhash2(pgaddr, PAGESIZE / 4, 17);
+  return checksum;
+}
+uint32_t calc_checksum_xxhash(void *pgaddr) {
+  uint32_t checksum;
+  checksum = xxh32(pgaddr, PAGESIZE, 0);
   return checksum;
 }
 
@@ -32,17 +38,17 @@ int main(int argc, char *argv[])
     for (int i = 0; i < PAGESIZE; ++i) {
       ((char*)(pgaddr+j*PAGESIZE))[i] = i+j*(PAGESIZE+1);
     }
-    checksum = calc_checksum(pgaddr+j*PAGESIZE);
+    checksum = calc_checksum_xxhash(pgaddr+j*PAGESIZE);
     printf("checksum %u\n", checksum);
   }
 
-    checksum = calc_checksum(pgaddr);
+    checksum = calc_checksum_xxhash(pgaddr);
     printf("aachecksum %u\n", checksum);
     ((char*)pgaddr)[0]+=3; 
     ((char*)pgaddr)[1]+=3; 
     ((char*)pgaddr)[5]-=3; 
     ((char*)pgaddr)[6]-=3; 
-    checksum = calc_checksum(pgaddr);
+    checksum = calc_checksum_xxhash(pgaddr);
     printf("aachecksum %u\n", checksum);
 
 

@@ -32,26 +32,20 @@ int main(int argc, char *argv[])
   void* pgaddr;
   uint32_t checksum;
   int pgnum = atoi(argv[1]);
+  unsigned long long calc_checksum_start, calc_checksum_end;
 
   pgaddr = malloc(PAGESIZE*pgnum);
+  memset(pgaddr, 0x5, PAGESIZE*pgnum);
+
+  calc_checksum_start = rdtsc();
   for (int j = 0; j < pgnum; ++j) {
-    for (int i = 0; i < PAGESIZE; ++i) {
-      ((char*)(pgaddr+j*PAGESIZE))[i] = i+j*(PAGESIZE+1);
-    }
     checksum = calc_checksum_xxhash(pgaddr+j*PAGESIZE);
-    printf("checksum %u\n", checksum);
   }
-  memset(pgaddr, 0x5, PAGESIZE);
-
-    checksum = calc_checksum_xxhash(pgaddr);
-    printf("aachecksum %u\n", checksum);
-    ((char*)pgaddr)[0]+=3; 
-    ((char*)pgaddr)[1]+=3; 
-    ((char*)pgaddr)[5]-=3; 
-    ((char*)pgaddr)[6]-=3; 
-    checksum = calc_checksum_xxhash(pgaddr);
-    printf("aachecksum %u\n", checksum);
+  calc_checksum_end = rdtsc();
 
 
+
+  printf("calc_checksum : %llu\n", calc_checksum_end - calc_checksum_start);
+  printf("checksum %u\n", checksum);
   return 0;
 }

@@ -27,7 +27,7 @@ static inline unsigned long long rdtsc() {
 }
 
 unsigned long long tv_CrContext, tv_CrKernel;
-unsigned char anshash[SHA1_BLOCK_SIZE] = {0x73, 0x2f, 0x20, 0x71, 0x22, 0x21, 0x18, 0x5f, 0x27, 0xd, 0xcd, 0xef, 0x18, 0x7b, 0x1b, 0xae, 0x53, 0x72, 0x15, 0x71};
+uint32_t anshash = 1474019464U;
 
 static int setup_ocl(cl_uint, cl_uint, char*);
 
@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
   int platform = 0;
   int device = 0;
   char msg[BUFSIZ];
-  unsigned char* hashval;
+  uint32_t *hashval;
   unsigned long long* pg_addrs;
   int i;
   
@@ -70,10 +70,10 @@ int main(int argc, char *argv[]) {
   //--- original pages of text
   texts = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, PAGE_SIZE * text_num, 0);
   memset(texts, 0x5, PAGE_SIZE * text_num);
+  hashval = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, sizeof(uint32_t)* text_num, 0);
   //-----
 
   pg_addrs = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, sizeof(unsigned long long) * text_num, 0);
-  hashval = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, SHA1_BLOCK_SIZE * text_num, 0);
   alloc_end = rdtsc();
   alloc_sub = alloc_end - alloc_start;
 
@@ -81,9 +81,6 @@ int main(int argc, char *argv[]) {
     pg_addrs[i] = (unsigned long long)(texts + i* PAGE_SIZE);
   }
   //memset(pg_addrs, 0xff, sizeof(unsigned long long)*text_num);
-  for (i = 0; i < SHA1_BLOCK_SIZE * text_num; ++i) {
-    hashval[i] = i;
-  }
   
   //printf("pg_addrs[0]:%llx,[1]:%llx, pgaddr 0x%llx, 0x%llx\n", pg_addrs[0], pg_addrs[1], &pg_addrs[0], &pg_addrs[1]);
 
@@ -112,13 +109,11 @@ int main(int argc, char *argv[]) {
   printf("alloc_sub: %llu\n", alloc_sub);
 
   for (i = 0; i < text_num; ++i) {
-    for (int j = 0; j < SHA1_BLOCK_SIZE; j++) {
 
-      if (anshash[j] != hashval[j + i*SHA1_BLOCK_SIZE]) {
-        printf("invalid hash value %d, %x, %x\n", i, anshash[j], hashval[j+i*SHA1_BLOCK_SIZE]);
-      }
-
+    if (anshash != hashval[i*sizeof(uint32_t)]) {
+      printf("invalid hash value %d, %u, %u\n", i, anshash, hashval[i*sizeof(uint32_t)]);
     }
+
 
   }
 

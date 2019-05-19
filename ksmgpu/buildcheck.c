@@ -71,8 +71,8 @@ void buildcheck(cl_device_id device_id, const char* options)
 
 int main(int argc, char *argv[])
 {
-  char source[10] = "gpusha1.cl";
-  char kern_name[10] = "gpusha1";
+  char source[20] = "gpusha1.cl";
+  char kern_name[20] = "gpusha1";
   cl_platform_id platform_id[MAX_PLATFORMS];
   cl_device_id   device_id[MAX_DEVICES];
   int device = 0;

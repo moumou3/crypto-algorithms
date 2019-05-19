@@ -109,8 +109,8 @@ int main(int argc, char *argv[]) {
 
   for (i = 0; i < text_num; ++i) {
 
-    if (anshash != hashval[i*sizeof(uint32_t)]) {
-      printf("invalid hash value %d, %u, %u\n", i, anshash, hashval[i*sizeof(uint32_t)]);
+    if (anshash != hashval[i]) {
+      printf("invalid hash value %d, %u, %u\n", i, anshash, hashval[i]);
     }
 
 
@@ -187,8 +187,8 @@ static int setup_ocl(cl_uint platform, cl_uint device, char* msg)
 
   // command queue
   Queue = clCreateCommandQueue(context, device_id[device], 0, &ret);
-  char source[10] = "gpuxxhash.cl";
-  char kern_name[10] = "gpuxxhash";
+  char source[20] = "gpuxxhash.cl";
+  char kern_name[20] = "gpuxxhash";
 
   printf("\nkernel name %s\n\n", source);
 

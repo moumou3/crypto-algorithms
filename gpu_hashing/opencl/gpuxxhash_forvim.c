@@ -7,7 +7,7 @@ typedef unsigned int  uint32_t;             // 32-bit word, change to "long" for
 
 __constant uint32_t PRIME32_1 = 2654435761U;
 __constant uint32_t PRIME32_2 = 2246822519U;
-__constant int32_t PRIME32_3 = 3266489917U;
+__constant uint32_t PRIME32_3 = 3266489917U;
 __constant uint32_t PRIME32_4 =  668265263U;
 __constant uint32_t PRIME32_5 =  374761393U;
 
@@ -81,6 +81,7 @@ __kernel void gpuxxhash(__global unsigned long *pg_addrs, __global uint32_t* has
 	int thx = get_global_id(0);
         unsigned char text_dev[PAGE_SIZE];
         uint32_t hashval_dev;
+        int i;
 
         if (thx < text_num  ) {
 

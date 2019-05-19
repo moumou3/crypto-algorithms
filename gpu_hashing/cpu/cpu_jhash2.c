@@ -41,6 +41,7 @@ int main(int argc, char *argv[])
     checksum = calc_checksum_xxhash(pgaddr+j*PAGESIZE);
     printf("checksum %u\n", checksum);
   }
+  memset(pgaddr, 0x5, PAGESIZE);
 
     checksum = calc_checksum_xxhash(pgaddr);
     printf("aachecksum %u\n", checksum);

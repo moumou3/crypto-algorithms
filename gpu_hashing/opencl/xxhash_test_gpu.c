@@ -16,7 +16,6 @@
 #define MAX_DEVICES (10)
 #define MAX_SOURCE_SIZE (100000)
 #define PAGE_SIZE 4096
-#define SHA1_BLOCK_SIZE 20              // SHA1 outputs a 20 byte digest
 
 static inline unsigned long long rdtsc() {
   unsigned long long ret;
@@ -188,8 +187,8 @@ static int setup_ocl(cl_uint platform, cl_uint device, char* msg)
 
   // command queue
   Queue = clCreateCommandQueue(context, device_id[device], 0, &ret);
-  char source[10] = "gpusha1.cl";
-  char kern_name[10] = "gpusha1";
+  char source[10] = "gpuxxhash.cl";
+  char kern_name[10] = "gpuxxhash";
 
   printf("\nkernel name %s\n\n", source);
 

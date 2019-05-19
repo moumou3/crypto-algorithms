@@ -38,13 +38,34 @@
  * - xxHash source repository: https://github.com/Cyan4973/xxHash
  */
 
-#include <asm/unaligned.h>
-#include <linux/errno.h>
-#include <linux/compiler.h>
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/string.h>
-#include <linux/xxhash.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include "le_byteshift.h"
+
+struct xxh32_state {
+	uint32_t total_len_32;
+	uint32_t large_len;
+	uint32_t v1;
+	uint32_t v2;
+	uint32_t v3;
+	uint32_t v4;
+	uint32_t mem32[4];
+	uint32_t memsize;
+};
+
+/**
+ * struct xxh32_state - private xxh64 state, do not use members directly
+ */
+struct xxh64_state {
+	uint64_t total_len;
+	uint64_t v1;
+	uint64_t v2;
+	uint64_t v3;
+	uint64_t v4;
+	uint64_t mem64[4];
+	uint32_t memsize;
+};
 
 /*-*************************************
  * Macros
@@ -80,13 +101,12 @@ void xxh32_copy_state(struct xxh32_state *dst, const struct xxh32_state *src)
 {
 	memcpy(dst, src, sizeof(*dst));
 }
-EXPORT_SYMBOL(xxh32_copy_state);
 
 void xxh64_copy_state(struct xxh64_state *dst, const struct xxh64_state *src)
 {
 	memcpy(dst, src, sizeof(*dst));
 }
-EXPORT_SYMBOL(xxh64_copy_state);
+
 
 /*-***************************
  * Simple Hash Functions
@@ -151,7 +171,6 @@ uint32_t xxh32(const void *input, const size_t len, const uint32_t seed)
 
 	return h32;
 }
-EXPORT_SYMBOL(xxh32);
 
 static uint64_t xxh64_round(uint64_t acc, const uint64_t input)
 {
@@ -234,7 +253,6 @@ uint64_t xxh64(const void *input, const size_t len, const uint64_t seed)
 
 	return h64;
 }
-EXPORT_SYMBOL(xxh64);
 
 /*-**************************************************
  * Advanced Hash Functions
@@ -251,7 +269,6 @@ void xxh32_reset(struct xxh32_state *statePtr, const uint32_t seed)
 	state.v4 = seed - PRIME32_1;
 	memcpy(statePtr, &state, sizeof(state));
 }
-EXPORT_SYMBOL(xxh32_reset);
 
 void xxh64_reset(struct xxh64_state *statePtr, const uint64_t seed)
 {
@@ -265,7 +282,6 @@ void xxh64_reset(struct xxh64_state *statePtr, const uint64_t seed)
 	state.v4 = seed - PRIME64_1;
 	memcpy(statePtr, &state, sizeof(state));
 }
-EXPORT_SYMBOL(xxh64_reset);
 
 int xxh32_update(struct xxh32_state *state, const void *input, const size_t len)
 {
@@ -334,7 +350,6 @@ int xxh32_update(struct xxh32_state *state, const void *input, const size_t len)
 
 	return 0;
 }
-EXPORT_SYMBOL(xxh32_update);
 
 uint32_t xxh32_digest(const struct xxh32_state *state)
 {
@@ -372,7 +387,6 @@ uint32_t xxh32_digest(const struct xxh32_state *state)
 
 	return h32;
 }
-EXPORT_SYMBOL(xxh32_digest);
 
 int xxh64_update(struct xxh64_state *state, const void *input, const size_t len)
 {
@@ -439,7 +453,6 @@ int xxh64_update(struct xxh64_state *state, const void *input, const size_t len)
 
 	return 0;
 }
-EXPORT_SYMBOL(xxh64_update);
 
 uint64_t xxh64_digest(const struct xxh64_state *state)
 {
@@ -494,8 +507,4 @@ uint64_t xxh64_digest(const struct xxh64_state *state)
 
 	return h64;
 }
-EXPORT_SYMBOL(xxh64_digest);
-
-MODULE_LICENSE("Dual BSD/GPL");
-MODULE_DESCRIPTION("xxHash");
 

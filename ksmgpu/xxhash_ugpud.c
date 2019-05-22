@@ -18,6 +18,9 @@
 #define MAX_DEVICES (10)
 #define MAX_SOURCE_SIZE (100000)
 #define PAGE_SIZE 4096
+#define MADV_UGPUD_FLAG 95
+#define MADV_UGPUD_INPUT 96
+#define MADV_UGPUD_OUTPUT 97
 
 static inline unsigned long long rdtsc() {
   unsigned long long ret;

@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
   unsigned long long alloc_start, alloc_end, alloc_sub;
 
   size_t local_item_size = 256;
-  size_t global_item_size = ((10+ local_item_size - 1) / local_item_size) * local_item_size;
+  size_t global_item_size = ((text_num+ local_item_size - 1) / local_item_size) * local_item_size;
 
   
 

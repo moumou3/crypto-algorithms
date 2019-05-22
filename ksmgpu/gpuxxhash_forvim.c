@@ -77,7 +77,7 @@ uint32_t xxh32(const void *input, const size_t len, const uint32_t seed)
 	return h32;
 }
 
-__kernel void gpuxxhash(__global unsigned long texts, __global uint32_t* hashval, int text_num) {
+__kernel void gpuxxhash(__global unsigned char *texts, __global uint32_t* hashval, int text_num) {
 	int thx = get_global_id(0);
         unsigned char text_dev[PAGE_SIZE];
         uint32_t hashval_dev;
@@ -86,7 +86,7 @@ __kernel void gpuxxhash(__global unsigned long texts, __global uint32_t* hashval
         if (thx < text_num  ) {
 
           for (i = 0; i < PAGE_SIZE; i++) {
-              text_dev[i] = (unsigned char*)(texts + thx * PAGE_SIZE)[i]; 
+              text_dev[i] = texts[i + thx * PAGE_SIZE];
           }
 	  hashval_dev = xxh32(text_dev, PAGE_SIZE, 0);
           hashval[thx] = hashval_dev;

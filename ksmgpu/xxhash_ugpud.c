@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
   uint32_t *hashval;
   unsigned long long* pg_addrs;
   int i;
-  unsigned char mapped_flag = 0x0;
+  unsigned char mapped_flag = 0x9;
   
 
   unsigned char *texts;
@@ -59,6 +59,7 @@ int main(int argc, char *argv[]) {
 
   size_t local_item_size = 256;
   size_t global_item_size = ((text_num+ local_item_size - 1) / local_item_size) * local_item_size;
+
 
   
 
@@ -74,13 +75,14 @@ int main(int argc, char *argv[]) {
   memset(texts, 0x5, PAGE_SIZE * text_num);
   hashval = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, sizeof(uint32_t)* text_num, 0);
   //-----
+  
+  madvise(&mapped_flag, sizeof(int), MADV_UGPUD_FLAG);
+  if (mapped_flag == 0x0)
+    printf("flag mapped:\n");
 
   alloc_end = rdtsc();
   alloc_sub = alloc_end - alloc_start;
 
-  //memset(pg_addrs, 0xff, sizeof(unsigned long long)*text_num);
-  
-  //printf("pg_addrs[0]:%llx,[1]:%llx, pgaddr 0x%llx, 0x%llx\n", pg_addrs[0], pg_addrs[1], &pg_addrs[0], &pg_addrs[1]);
 
   clSetKernelArgSVMPointer(k_vadd, 0, texts);
   clSetKernelArgSVMPointer(k_vadd, 1, hashval);

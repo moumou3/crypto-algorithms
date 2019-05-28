@@ -7,11 +7,13 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
-#include <CL/cl.h>
+#include <inttypes.h>
+//#include <CL/cl.h>
 #include <sys/time.h>
 #include <sys/syscall.h>
 #include  <sys/ipc.h>
- 
+#include "../gpu_hashing/cpu/xxhash.h"
+
 
 
 #define MAX_PLATFORMS (10)
@@ -30,14 +32,23 @@ static inline unsigned long long rdtsc() {
   return ret;
 }
 
+uint32_t calc_checksum_xxhash(void *pgaddr) {
+  uint32_t checksum;
+  checksum = xxh32(pgaddr, PAGE_SIZE, 0);
+  checksum = ((unsigned char*)pgaddr)[0];
+  return checksum;
+}
+
 unsigned long long tv_CrContext, tv_CrKernel;
-uint32_t anshash = 1474019464U;
+unsigned int anshash = 1474019464U;
 
-static int setup_ocl(cl_uint, cl_uint, char*);
+//static int setup_ocl(cl_uint, cl_uint, char*);
 
+/*
 cl_command_queue Queue;
 cl_kernel k_vadd;
 cl_context     context = NULL;
+*/
 size_t memsize;
 int result;
 int *test;
@@ -48,44 +59,79 @@ int main(int argc, char *argv[]) {
   int platform = 0;
   int device = 0;
   char msg[BUFSIZ];
-  uint32_t *hashval;
+  unsigned int *hashval;
   unsigned long long* pg_addrs;
   int i;
-  unsigned char mapped_flag = 0x9;
+  unsigned char *mapped_flag;
   
 
   unsigned char *texts;
+  unsigned int *outputs;
   int text_num = atoi(argv[1]);
+  int count = 0;
 
   unsigned long long ndrange_start, ndrange_end, ndrange_sub;
   unsigned long long alloc_start, alloc_end, alloc_sub;
+  size_t memsize;
+  size_t outsize;
+  unsigned int remapcount = 0;
 
-  size_t local_item_size = 256;
-  size_t global_item_size = ((text_num+ local_item_size - 1) / local_item_size) * local_item_size;
+  //size_t local_item_size = 256;
+  //size_t global_item_size = ((text_num+ local_item_size - 1) / local_item_size) * local_item_size;
+
+  memsize = sysconf(_SC_PAGESIZE) * text_num;
+  outsize = ((sizeof(unsigned int) * text_num) / sysconf(_SC_PAGESIZE) + 1) * sysconf(_SC_PAGESIZE);
+
+  mapped_flag = mmap(NULL, sysconf(_SC_PAGESIZE)*1, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  printf("mapped_flag:%llx\n", mapped_flag);
 
 
-  
-
-
+  /*
   ret = setup_ocl((cl_uint)platform, (cl_uint)device, msg);
   if (ret > 0)
     printf("ret= %d , %s", ret, msg);
+  */
 
   alloc_start = rdtsc();
-  
+  texts = mmap(NULL, memsize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  printf("text:%llx\n", texts);
+  outputs = mmap(NULL, outsize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  printf("outputs:%llx\n", outputs);
+  /*
   //--- original pages of text
   texts = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, PAGE_SIZE * text_num, 0);
   memset(texts, 0x5, PAGE_SIZE * text_num);
   hashval = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, sizeof(uint32_t)* text_num, 0);
   //-----
   
-  madvise(&mapped_flag, sizeof(int), MADV_UGPUD_FLAG);
-  if (mapped_flag == 0x0)
-    printf("flag mapped:\n");
+  */
+  madvise(mapped_flag, sizeof(int), MADV_UGPUD_FLAG);
+  madvise(texts, memsize, MADV_UGPUD_INPUT); 
+  madvise(outputs, outsize, MADV_UGPUD_OUTPUT); 
+  if (*mapped_flag == 0x0)
+    printf("mapped_flag mapped:\n");
+  
+  while (1) {
+    if (*mapped_flag == 0x1) {
+      remapcount = outputs[0];
+      printf("remapcount : %u\n", remapcount);
+      //remapping by kernel complete or processing
+      //now debugging instead of gpu computing
+      printf("gpu calc start:\n");
+      for (int j = 0; j < remapcount; ++j) {
+        outputs[j] = calc_checksum_xxhash(texts+j*PAGE_SIZE);
+      }
+      printf("\ngpu calc end:\n");
+      *mapped_flag = 0x2;
+
+    }
+
+  }
 
   alloc_end = rdtsc();
   alloc_sub = alloc_end - alloc_start;
 
+  /*
 
   clSetKernelArgSVMPointer(k_vadd, 0, texts);
   clSetKernelArgSVMPointer(k_vadd, 1, hashval);
@@ -104,6 +150,7 @@ int main(int argc, char *argv[]) {
   ndrange_end= rdtsc();
   ndrange_sub = ndrange_end - ndrange_start;
 
+  */
 
 
   printf("tv_CrContext: %llu\n", tv_CrContext);
@@ -111,26 +158,31 @@ int main(int argc, char *argv[]) {
   printf("ndrange_sub: %llu\n", ndrange_sub);
   printf("alloc_sub: %llu\n", alloc_sub);
 
+  /*
   for (i = 0; i < text_num; ++i) {
 
-    if (anshash != hashval[i]) {
+    if (anshash != hashval) {
       printf("invalid hash value %d, %u, %u\n", i, anshash, hashval[i]);
     }
 
 
   }
+  */
 
 
 
+  /*
   clReleaseKernel(k_vadd);
   clReleaseCommandQueue(Queue);
   clReleaseContext(context);
+  */
 
 
 
   printf("End of the program\n");
   return 0;
 }
+/*
 
 static int setup_ocl(cl_uint platform, cl_uint device, char* msg)
 {
@@ -238,3 +290,4 @@ static int setup_ocl(cl_uint platform, cl_uint device, char* msg)
 
 }
 
+*/

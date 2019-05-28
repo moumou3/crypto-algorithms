@@ -42,13 +42,12 @@ uint32_t calc_checksum_xxhash(void *pgaddr) {
 unsigned long long tv_CrContext, tv_CrKernel;
 unsigned int anshash = 1474019464U;
 
-//static int setup_ocl(cl_uint, cl_uint, char*);
+static int setup_ocl(cl_uint, cl_uint, char*);
 
-/*
 cl_command_queue Queue;
 cl_kernel k_vadd;
 cl_context     context = NULL;
-*/
+
 size_t memsize;
 int result;
 int *test;
@@ -76,8 +75,8 @@ int main(int argc, char *argv[]) {
   size_t outsize;
   unsigned int remapcount = 0;
 
-  //size_t local_item_size = 256;
-  //size_t global_item_size = ((text_num+ local_item_size - 1) / local_item_size) * local_item_size;
+  size_t local_item_size = 256;
+  size_t global_item_size = ((text_num+ local_item_size - 1) / local_item_size) * local_item_size;
 
   memsize = sysconf(_SC_PAGESIZE) * text_num;
   outsize = ((sizeof(unsigned int) * text_num) / sysconf(_SC_PAGESIZE) + 1) * sysconf(_SC_PAGESIZE);
@@ -86,25 +85,24 @@ int main(int argc, char *argv[]) {
   printf("mapped_flag:%llx\n", mapped_flag);
 
 
-  /*
   ret = setup_ocl((cl_uint)platform, (cl_uint)device, msg);
   if (ret > 0)
     printf("ret= %d , %s", ret, msg);
-  */
 
   alloc_start = rdtsc();
-  texts = mmap(NULL, memsize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+//  texts = mmap(NULL, memsize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+//  printf("text:%llx\n", texts);
+//  outputs = mmap(NULL, outsize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+//  printf("outputs:%llx\n", outputs);
+
+  texts = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, memsize, 0);
   printf("text:%llx\n", texts);
-  outputs = mmap(NULL, outsize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  outputs = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, outsize, 0);
   printf("outputs:%llx\n", outputs);
-  /*
-  //--- original pages of text
-  texts = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, PAGE_SIZE * text_num, 0);
-  memset(texts, 0x5, PAGE_SIZE * text_num);
-  hashval = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, sizeof(uint32_t)* text_num, 0);
-  //-----
-  
-  */
+
+  alloc_end = rdtsc();
+  alloc_sub = alloc_end - alloc_start;
+
   madvise(mapped_flag, sizeof(int), MADV_UGPUD_FLAG);
   madvise(texts, memsize, MADV_UGPUD_INPUT); 
   madvise(outputs, outsize, MADV_UGPUD_OUTPUT); 
@@ -115,12 +113,18 @@ int main(int argc, char *argv[]) {
     if (*mapped_flag == 0x1) {
       remapcount = outputs[0];
       printf("remapcount : %u\n", remapcount);
-      //remapping by kernel complete or processing
-      //now debugging instead of gpu computing
       printf("gpu calc start:\n");
-      for (int j = 0; j < remapcount; ++j) {
-        outputs[j] = calc_checksum_xxhash(texts+j*PAGE_SIZE);
-      }
+
+      clSetKernelArgSVMPointer(k_vadd, 0, texts);
+      clSetKernelArgSVMPointer(k_vadd, 1, outputs);
+      clSetKernelArg(k_vadd, 2, sizeof(remapcount), &remapcount);
+
+      ndrange_start = rdtsc();
+      clEnqueueNDRangeKernel(Queue, k_vadd, 1, NULL, &global_item_size, &local_item_size, 0, NULL, NULL);
+      clFinish(Queue);
+      ndrange_end = rdtsc();
+      ndrange_sub = ndrange_end - ndrange_start;
+      printf("ndrange_sub: %llu\n", ndrange_sub);
       printf("\ngpu calc end:\n");
       *mapped_flag = 0x2;
 
@@ -128,8 +132,6 @@ int main(int argc, char *argv[]) {
 
   }
 
-  alloc_end = rdtsc();
-  alloc_sub = alloc_end - alloc_start;
 
   /*
 
@@ -153,9 +155,9 @@ int main(int argc, char *argv[]) {
   */
 
 
-  printf("tv_CrContext: %llu\n", tv_CrContext);
-  printf("tv_CrKernel: %llu\n", tv_CrKernel);
-  printf("ndrange_sub: %llu\n", ndrange_sub);
+  //printf("tv_CrContext: %llu\n", tv_CrContext);
+  //printf("tv_CrKernel: %llu\n", tv_CrKernel);
+  //printf("ndrange_sub: %llu\n", ndrange_sub);
   printf("alloc_sub: %llu\n", alloc_sub);
 
   /*
@@ -182,7 +184,6 @@ int main(int argc, char *argv[]) {
   printf("End of the program\n");
   return 0;
 }
-/*
 
 static int setup_ocl(cl_uint platform, cl_uint device, char* msg)
 {
@@ -290,4 +291,3 @@ static int setup_ocl(cl_uint platform, cl_uint device, char* msg)
 
 }
 
-*/

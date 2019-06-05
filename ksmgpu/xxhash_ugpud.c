@@ -8,7 +8,7 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <inttypes.h>
-#include <CL/cl.h>
+//#include <CL/cl.h>
 #include <sys/time.h>
 #include <sys/syscall.h>
 #include  <sys/ipc.h>
@@ -35,13 +35,14 @@ static inline unsigned long long rdtsc() {
 uint32_t calc_checksum_xxhash(void *pgaddr) {
   uint32_t checksum;
   checksum = xxh32(pgaddr, PAGE_SIZE, 0);
+  checksum = ((unsigned char*)pgaddr)[0];
   return checksum;
 }
 
 unsigned long long tv_CrContext, tv_CrKernel;
 unsigned int anshash = 1474019464U;
 
-static int setup_ocl(cl_uint platform, cl_uint device, char* msg, void* inputA, void* inputB, size_t sizeA, size_t sizeB);
+static int setup_ocl(cl_uint, cl_uint, char*);
 
 cl_command_queue Queue;
 cl_kernel k_vadd;
@@ -84,72 +85,38 @@ int main(int argc, char *argv[]) {
   printf("mapped_flag:%llx\n", mapped_flag);
 
 
+  ret = setup_ocl((cl_uint)platform, (cl_uint)device, msg);
+  if (ret > 0)
+    printf("ret= %d , %s", ret, msg);
 
   alloc_start = rdtsc();
-  texts = mmap(NULL, memsize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-  printf("text:%llx\n", texts);
-  outputs = mmap(NULL, outsize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-  printf("outputs:%llx\n", outputs);
+//  texts = mmap(NULL, memsize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+//  printf("text:%llx\n", texts);
+//  outputs = mmap(NULL, outsize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+//  printf("outputs:%llx\n", outputs);
 
-//  texts = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, memsize + outsize, 0);
- // printf("text:%llx\n", texts);
-  //outputs = texts + memsize;
-  //outputs = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, outsize, 0);
- // printf("outputs:%llx\n", outputs);
+  texts = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, memsize, 0);
+  printf("text:%llx\n", texts);
+  outputs = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, outsize, 0);
+  printf("outputs:%llx\n", outputs);
 
   alloc_end = rdtsc();
   alloc_sub = alloc_end - alloc_start;
 
-#if 0
   madvise(mapped_flag, sizeof(int), MADV_UGPUD_FLAG);
   madvise(texts, memsize, MADV_UGPUD_INPUT); 
-  ret = madvise(outputs, outsize, MADV_UGPUD_OUTPUT); 
-#endif
-  texts[0] = 0x5; 
-
-
-  if (ret != 0)
-    printf("ret %d", ret);
+  madvise(outputs, outsize, MADV_UGPUD_OUTPUT); 
   if (*mapped_flag == 0x0)
     printf("mapped_flag mapped:\n");
-
-  ret = setup_ocl((cl_uint)platform, (cl_uint)device, msg, texts, outputs, memsize, outsize);
-  if (ret > 0)
-    printf("ret= %d , %s", ret, msg);
-
- alloc_start= rdtsc();
-  //Create buffer
-  cl_mem inputobj = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, memsize, texts, &ret);
-  cl_mem outputobj = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, outsize, outputs, &ret);
-  unsigned char *ptrMapped = (unsigned char*)clEnqueueMapBuffer(Queue, inputobj, CL_TRUE, CL_MAP_WRITE, 0, memsize,  0, NULL, NULL, &ret);
-  ptrMapped[0] = 0x5;
-  printf("ptrMapped %x", ptrMapped[0]);
-  ret = clEnqueueUnmapMemObject(Queue, inputobj, ptrMapped, 0, NULL, NULL);
-  alloc_end = rdtsc();
-  printf("alloc_sub: %llu\n", alloc_end-alloc_start);
-  return 0;
+  
   while (1) {
     if (*mapped_flag == 0x1) {
       remapcount = outputs[0];
       printf("remapcount : %u\n", remapcount);
       printf("gpu calc start:\n");
 
-//        unsigned int a = calc_checksum_xxhash(texts);
- //       printf("aaaaaaaa %d\n\n", a);
-      for (int j = 0; j < remapcount; j++) {
-        outputs[j] = calc_checksum_xxhash(texts+j*PAGE_SIZE);
-      }
-      for (int j = 0; j < remapcount; j++) {
-        printf("outputs %d\n\nn", outputs[j]);
-      }
-      *mapped_flag = 0x2;
-
-      while(1);
-      //clSetKernelArgSVMPointer(k_vadd, 0, texts);
-      //clSetKernelArgSVMPointer(k_vadd, 1, outputs);
-      //clSetKernelArg(k_vadd, 2, sizeof(remapcount), &remapcount);
-      clSetKernelArg(k_vadd, 0, sizeof(cl_mem), (void*)&inputobj);
-      clSetKernelArg(k_vadd, 1, sizeof(cl_mem), (void*)&outputobj);
+      clSetKernelArgSVMPointer(k_vadd, 0, texts);
+      clSetKernelArgSVMPointer(k_vadd, 1, outputs);
       clSetKernelArg(k_vadd, 2, sizeof(remapcount), &remapcount);
 
       ndrange_start = rdtsc();
@@ -157,7 +124,6 @@ int main(int argc, char *argv[]) {
       clFinish(Queue);
       ndrange_end = rdtsc();
       ndrange_sub = ndrange_end - ndrange_start;
-
       printf("ndrange_sub: %llu\n", ndrange_sub);
       printf("\ngpu calc end:\n");
       *mapped_flag = 0x2;
@@ -167,7 +133,7 @@ int main(int argc, char *argv[]) {
   }
 
 
-  /* SVM
+  /*
 
   clSetKernelArgSVMPointer(k_vadd, 0, texts);
   clSetKernelArgSVMPointer(k_vadd, 1, hashval);
@@ -219,7 +185,7 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-static int setup_ocl(cl_uint platform, cl_uint device, char* msg, void* inputA, void* inputB, size_t sizeA, size_t sizeB)
+static int setup_ocl(cl_uint platform, cl_uint device, char* msg)
 {
   cl_program     program = NULL;
   cl_platform_id platform_id[MAX_PLATFORMS];
@@ -278,10 +244,6 @@ static int setup_ocl(cl_uint platform, cl_uint device, char* msg, void* inputA, 
 
   // command queue
   Queue = clCreateCommandQueue(context, device_id[device], 0, &ret);
-
-
-
-  /*create program*/ 
   char source[20] = "gpuxxhash.cl";
   char kern_name[20] = "gpuxxhash";
 
@@ -294,6 +256,7 @@ static int setup_ocl(cl_uint platform, cl_uint device, char* msg, void* inputA, 
   source_size = fread(source_str, 1, MAX_SOURCE_SIZE, fp);
   fclose(fp);
 
+  // program
   program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &ret);
   if (ret != CL_SUCCESS) {
     sprintf(msg, "clCreateProgramWithSource() error");
@@ -315,7 +278,6 @@ static int setup_ocl(cl_uint platform, cl_uint device, char* msg, void* inputA, 
     sprintf(msg, "clCreateKernel() error");
     return 1;
   }
-
 
   tv_CrContext = tv_CrContext_end - tv_CrContext_start;
   tv_CrKernel = tv_CrKernel_end - tv_CrKernel_start;

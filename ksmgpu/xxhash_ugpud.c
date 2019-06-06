@@ -8,7 +8,7 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <inttypes.h>
-//#include <CL/cl.h>
+#include <CL/cl.h>
 #include <sys/time.h>
 #include <sys/syscall.h>
 #include  <sys/ipc.h>
@@ -35,7 +35,6 @@ static inline unsigned long long rdtsc() {
 uint32_t calc_checksum_xxhash(void *pgaddr) {
   uint32_t checksum;
   checksum = xxh32(pgaddr, PAGE_SIZE, 0);
-  checksum = ((unsigned char*)pgaddr)[0];
   return checksum;
 }
 
@@ -71,8 +70,12 @@ int main(int argc, char *argv[]) {
 
   unsigned long long ndrange_start, ndrange_end, ndrange_sub;
   unsigned long long alloc_start, alloc_end, alloc_sub;
+  unsigned long long write_start, write_end, write_sub;
+  unsigned long long read_start, read_end, read_sub;
   size_t memsize;
   size_t outsize;
+  cl_mem inputobj;
+  cl_mem outputobj;
   unsigned int remapcount = 0;
 
   size_t local_item_size = 256;
@@ -90,15 +93,16 @@ int main(int argc, char *argv[]) {
     printf("ret= %d , %s", ret, msg);
 
   alloc_start = rdtsc();
-//  texts = mmap(NULL, memsize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-//  printf("text:%llx\n", texts);
-//  outputs = mmap(NULL, outsize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-//  printf("outputs:%llx\n", outputs);
-
-  texts = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, memsize, 0);
+  texts = mmap(NULL, memsize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   printf("text:%llx\n", texts);
-  outputs = clSVMAlloc(context, CL_MEM_READ_WRITE|CL_MEM_SVM_FINE_GRAIN_BUFFER|CL_MEM_SVM_ATOMICS, outsize, 0);
+  outputs = mmap(NULL, outsize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   printf("outputs:%llx\n", outputs);
+
+  inputobj = clCreateBuffer(context, CL_MEM_READ_ONLY, memsize, NULL, &ret);
+  outputobj = clCreateBuffer(context, CL_MEM_WRITE_ONLY, outsize, NULL, &ret);
+  if (ret > 0) 
+    printf("input output ret= %d , %s", ret, msg);
+
 
   alloc_end = rdtsc();
   alloc_sub = alloc_end - alloc_start;
@@ -115,17 +119,30 @@ int main(int argc, char *argv[]) {
       printf("remapcount : %u\n", remapcount);
       printf("gpu calc start:\n");
 
-      clSetKernelArgSVMPointer(k_vadd, 0, texts);
-      clSetKernelArgSVMPointer(k_vadd, 1, outputs);
+      write_start = rdtsc();
+      clEnqueueWriteBuffer(Queue, inputobj, CL_TRUE, 0, memsize, texts, 0, NULL, NULL);
+      write_end = rdtsc();
+      clSetKernelArg(k_vadd, 0, sizeof(inputobj), &inputobj);
+      clSetKernelArg(k_vadd, 1, sizeof(outputobj), &outputobj);
       clSetKernelArg(k_vadd, 2, sizeof(remapcount), &remapcount);
 
       ndrange_start = rdtsc();
       clEnqueueNDRangeKernel(Queue, k_vadd, 1, NULL, &global_item_size, &local_item_size, 0, NULL, NULL);
       clFinish(Queue);
       ndrange_end = rdtsc();
+
+      read_start = rdtsc();
+      clEnqueueReadBuffer(Queue, outputobj, CL_TRUE, 0, outsize, outputs, 0, NULL, NULL);
+      read_end = rdtsc();
+
       ndrange_sub = ndrange_end - ndrange_start;
+      write_sub = write_end - write_start;
+      read_sub = read_end - read_start;
       printf("ndrange_sub: %llu\n", ndrange_sub);
+      printf("write_sub: %llu\n", write_sub);
+      printf("read_sub: %llu\n", read_sub);
       printf("\ngpu calc end:\n");
+
       *mapped_flag = 0x2;
 
     }

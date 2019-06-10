@@ -98,10 +98,6 @@ int main(int argc, char *argv[]) {
   outputs = mmap(NULL, outsize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   printf("outputs:%llx\n", outputs);
 
-  inputobj = clCreateBuffer(context, CL_MEM_READ_ONLY, memsize, NULL, &ret);
-  outputobj = clCreateBuffer(context, CL_MEM_WRITE_ONLY, outsize, NULL, &ret);
-  if (ret > 0) 
-    printf("input output ret= %d , %s", ret, msg);
 
 
   alloc_end = rdtsc();
@@ -112,16 +108,27 @@ int main(int argc, char *argv[]) {
   madvise(outputs, outsize, MADV_UGPUD_OUTPUT); 
   if (*mapped_flag == 0x0)
     printf("mapped_flag mapped:\n");
-  
+
+  inputobj = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, memsize, texts, &ret);
+  outputobj = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR, outsize, outputs, &ret);
+  if (ret > 0) 
+    printf("input output ret= %d , %s", ret, msg);
+  unsigned char* mapped_input = (unsigned char*) clEnqueueMapBuffer(Queue, inputobj, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE, 0, memsize, 0, NULL, NULL, &ret);
+  unsigned int* mapped_output = (unsigned int*) clEnqueueMapBuffer(Queue, outputobj, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE, 0, outsize, 0, NULL, NULL, &ret);
+  if (ret > 0)
+    printf("mapped ret= %d , %s", ret, msg);
+
+  printf("mapped_input:%llx\n", mapped_input);
+  printf("mapped_output:%llx\n", mapped_output);
+
   while (1) {
     if (*mapped_flag == 0x1) {
-      remapcount = outputs[0];
+      remapcount = mapped_output[0];
       printf("remapcount : %u\n", remapcount);
       printf("gpu calc start:\n");
 
-      write_start = rdtsc();
-      clEnqueueWriteBuffer(Queue, inputobj, CL_TRUE, 0, memsize, texts, 0, NULL, NULL);
-      write_end = rdtsc();
+      clEnqueueUnmapMemObject(Queue, inputobj, mapped_input, 0, NULL, NULL);
+      clEnqueueUnmapMemObject(Queue, outputobj, mapped_output, 0, NULL, NULL);
       clSetKernelArg(k_vadd, 0, sizeof(inputobj), &inputobj);
       clSetKernelArg(k_vadd, 1, sizeof(outputobj), &outputobj);
       clSetKernelArg(k_vadd, 2, sizeof(remapcount), &remapcount);
@@ -131,17 +138,21 @@ int main(int argc, char *argv[]) {
       clFinish(Queue);
       ndrange_end = rdtsc();
 
-      read_start = rdtsc();
-      clEnqueueReadBuffer(Queue, outputobj, CL_TRUE, 0, outsize, outputs, 0, NULL, NULL);
-      read_end = rdtsc();
 
       ndrange_sub = ndrange_end - ndrange_start;
-      write_sub = write_end - write_start;
-      read_sub = read_end - read_start;
+      /*
       printf("ndrange_sub: %llu\n", ndrange_sub);
       printf("write_sub: %llu\n", write_sub);
       printf("read_sub: %llu\n", read_sub);
       printf("\ngpu calc end:\n");
+      */
+
+   mapped_input = (unsigned char*) clEnqueueMapBuffer(Queue, inputobj, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE, 0, memsize, 0, NULL, NULL, &ret);
+   mapped_output = (unsigned int*) clEnqueueMapBuffer(Queue, outputobj, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE, 0, outsize, 0, NULL, NULL, &ret);
+  if (ret > 0)
+    printf("mapped ret= %d , %s", ret, msg);
+  printf("mapped_input:%llx\n", mapped_input);
+  printf("mapped_output:%llx\n", mapped_output);
 
       *mapped_flag = 0x2;
 
@@ -150,26 +161,6 @@ int main(int argc, char *argv[]) {
   }
 
 
-  /*
-
-  clSetKernelArgSVMPointer(k_vadd, 0, texts);
-  clSetKernelArgSVMPointer(k_vadd, 1, hashval);
-  clSetKernelArg(k_vadd, 2, sizeof(text_num), &text_num);
-
-  //clSetKernelExecInfo(k_vadd,  CL_KERNEL_EXEC_INFO_SVM_PTRS, text_num * sizeof(unsigned long long), pg_addrs);
-
-
-
-
-
-
-  ndrange_start = rdtsc();
-  clEnqueueNDRangeKernel(Queue, k_vadd, 1, NULL, &global_item_size, &local_item_size, 0, NULL, NULL);
-  clFinish(Queue);
-  ndrange_end= rdtsc();
-  ndrange_sub = ndrange_end - ndrange_start;
-
-  */
 
 
   //printf("tv_CrContext: %llu\n", tv_CrContext);

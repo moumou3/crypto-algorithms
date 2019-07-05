@@ -42,6 +42,7 @@ int main(int argc, char *argv[])
   memset(buffer3, 0x0, 20);
   memset(run_buffer, 0x0, 20);
 
+
   while(1) {
     gettimeofday(&now, NULL);
     if (tv_sub(before, now) > 1.) {
@@ -55,9 +56,10 @@ int main(int argc, char *argv[])
       fread(buffer3, 10, 1, fp3);
       fread(run_buffer, 10, 1, fp6);
       printf("time %fs:\n sharing:%s shared:%s full_scans:%s run:%s", tv_sub(start, now), buffer, buffer2, buffer3, run_buffer);
-      fputs(buffer, fp_result);
-      fclose(fp_result);
+      //fputs(buffer, fp_result);
+      fprintf(fp_result, "%f, %s", tv_sub(start, now), buffer);
       gettimeofday(&before, NULL);
+      fclose(fp_result);
     }
     usleep(500000);
   }

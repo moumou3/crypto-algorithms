@@ -14,12 +14,20 @@
 #include  <sys/ipc.h>
 
 #define MADV_EXPR_RUN 94
+#define MADV_EXPR_FLAG 97
+#define MADV_EXPR_INPUT 98
+#define MADV_EXPR_OUTPUT 99
 #define HUGE_SIZE 2 * 1024 * 1024
+#define SHSCRIPT \
+   "echo 20 | sudo tee /proc/sys/vm/nr_hugepages"
 
 int main(int argc, char *argv[])
 {
-  unsigned char *dummy_advise;
-  dummy_advise = mmap(NULL, HUGE_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_HUGETLB|MAP_ANONYMOUS, 0, 0);
-  madvise(dummy_advise, HUGE_SIZE, MADV_EXPR_RUN); 
+  unsigned char *hugeapp_mem;
+  //system(SHSCRIPT);
+  hugeapp_mem= mmap(NULL, HUGE_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_HUGETLB|MAP_ANONYMOUS, 0, 0);
+  hugeapp_mem[0] = 0x11;
+  madvise(hugeapp_mem, sizeof(int), MADV_EXPR_RUN); 
+  while(1);
   return 0;
 }

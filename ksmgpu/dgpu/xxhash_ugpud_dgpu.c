@@ -8,11 +8,11 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <inttypes.h>
-#include <CL/cl.h>
 #include <sys/time.h>
 #include <sys/syscall.h>
 #include  <sys/ipc.h>
-#include "../gpu_hashing/cpu/xxhash.h"
+#include <cuda.h>
+#include "../../gpu_hashing/cpu/xxhash.h"
 
 
 
@@ -41,7 +41,7 @@ uint32_t calc_checksum_xxhash(void *pgaddr) {
 unsigned long long tv_CrContext, tv_CrKernel;
 unsigned int anshash = 1474019464U;
 
-static int setup_ocl(cl_uint, cl_uint, char*);
+static int setup_cuda(int argc, char **argv, CUfunction *pfunction);
 
 cl_command_queue Queue;
 cl_kernel k_vadd;
@@ -81,6 +81,9 @@ int main(int argc, char *argv[]) {
   size_t local_item_size = 256;
   size_t global_item_size = ((text_num+ local_item_size - 1) / local_item_size) * local_item_size;
 
+  CUfunction function;
+  CUdeviceptr a_dev, b_dev, c_dev;
+
   memsize = sysconf(_SC_PAGESIZE) * text_num;
   outsize = ((sizeof(unsigned int) * text_num) / sysconf(_SC_PAGESIZE) + 1) * sysconf(_SC_PAGESIZE);
 
@@ -88,7 +91,7 @@ int main(int argc, char *argv[]) {
   printf("mapped_flag:%llx\n", mapped_flag);
 
 
-  ret = setup_ocl((cl_uint)platform, (cl_uint)device, msg);
+  ret = setup_cuda(0,NULL,&function);
   if (ret > 0)
     printf("ret= %d , %s", ret, msg);
 
@@ -109,26 +112,25 @@ int main(int argc, char *argv[]) {
   if (*mapped_flag == 0x0)
     printf("mapped_flag mapped:\n");
 
-  inputobj = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, memsize, texts, &ret);
-  outputobj = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR, outsize, outputs, &ret);
-  if (ret > 0) 
-    printf("input output ret= %d , %s", ret, msg);
-  unsigned char* mapped_input = (unsigned char*) clEnqueueMapBuffer(Queue, inputobj, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE, 0, memsize, 0, NULL, NULL, &ret);
-  unsigned int* mapped_output = (unsigned int*) clEnqueueMapBuffer(Queue, outputobj, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE, 0, outsize, 0, NULL, NULL, &ret);
-  if (ret > 0)
-    printf("mapped ret= %d , %s", ret, msg);
+  res = cuMemAlloc(&input_dev, memsize);
+  res = cuMemAlloc(&output_dev, outsize);
+  if (res != CUDA_SUCCESS) {
+    printf("cuMemAlloc (a) failed\n");
+    return -1;
+  }
 
-  printf("mapped_input:%llx\n", mapped_input);
-  printf("mapped_output:%llx\n", mapped_output);
+
 
   while (1) {
     if (*mapped_flag == 0x1) {
-      remapcount = mapped_output[0];
+      remapcount = outputs[0];
       printf("remapcount : %u\n", remapcount);
       printf("gpu calc start:\n");
 
-      clEnqueueUnmapMemObject(Queue, inputobj, mapped_input, 0, NULL, NULL);
-      clEnqueueUnmapMemObject(Queue, outputobj, mapped_output, 0, NULL, NULL);
+      res = cuMemcpyHtoD(input_dev, texts, memsize);
+	res = cuParamSeti(function, 0, input_dev);	
+	res = cuParamSeti(function, 1, output_dev);	
+	res = cuParamSeti(function, 2, remapcount);	
       clSetKernelArg(k_vadd, 0, sizeof(inputobj), &inputobj);
       clSetKernelArg(k_vadd, 1, sizeof(outputobj), &outputobj);
       clSetKernelArg(k_vadd, 2, sizeof(remapcount), &remapcount);
@@ -193,106 +195,47 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-static int setup_ocl(cl_uint platform, cl_uint device, char* msg)
+static int setup_cuda(int argc, char **argv, CUfunction *pfunction)
 {
-  cl_program     program = NULL;
-  cl_platform_id platform_id[MAX_PLATFORMS];
-  cl_device_id   device_id[MAX_DEVICES];
 
-  FILE *fp;
-  char *source_str;
-  char str[BUFSIZ];
-  size_t source_size, ret_size, size;
-  cl_uint num_platforms, num_devices;
-  cl_int ret;
+  CUresult res;
+  CUdevice dev;
+  CUcontext ctx;
+  CUfunction function;
+  CUmodule module;
   unsigned long long tv_CrContext_start, tv_CrContext_end;
   unsigned long long tv_CrKernel_start, tv_CrKernel_end;
+  char ptxfname[20] = "gpuxxhash_dgpu.ptx";
+  char kern_name[20] = "gpuxxhash_dgpu";
 
-  // alloc
-  source_str = (char *)malloc(MAX_SOURCE_SIZE * sizeof(char));
-
-  // platform
-  clGetPlatformIDs(MAX_PLATFORMS, platform_id, &num_platforms);
-  if (platform >= num_platforms) {
-    sprintf(msg, "error : platform = %d (limit = %d)", platform, num_platforms - 1);
-    return 1;
+  res = cuInit(0);
+  if (res != CUDA_SUCCESS) {
+    printf("cuInit failed: res = %lu\n", (unsigned long)res);
+    return -1;
   }
-
-  // device
-  clGetDeviceIDs(platform_id[platform], CL_DEVICE_TYPE_ALL, MAX_DEVICES, device_id, &num_devices);
-  if (device >= num_devices) {
-    sprintf(msg, "error : device = %d (limit = %d)", device, num_devices - 1);
-    return 1;
+  res = cuDeviceGet(&dev, 0);
+  if (res != CUDA_SUCCESS) {
+    printf("cuDeviceGet failed: res = %lu\n", (unsigned long)res);
+    return -1;
   }
-
-  // device name (option)
-  clGetDeviceInfo(device_id[device], CL_DEVICE_NAME, sizeof(str), str, &ret_size);
-  sprintf(msg, "%s (platform = %d, device = %d)", str, platform, device);
-  char version[100];
-  clGetPlatformInfo(platform_id[platform], CL_PLATFORM_VERSION, 100, version, &ret_size);
-  printf("version, %s", version);
-
-  //svm capability
-  cl_device_svm_capabilities caps;
-  clGetDeviceInfo(device_id[0], CL_DEVICE_SVM_CAPABILITIES, sizeof(cl_device_svm_capabilities), &caps, NULL);
-  int svmCoarse     = 0!=(caps & CL_DEVICE_SVM_COARSE_GRAIN_BUFFER);
-  int svmFineBuffer = 0!=(caps & CL_DEVICE_SVM_FINE_GRAIN_BUFFER);
-  int svmFineSystem = 0!=(caps & CL_DEVICE_SVM_FINE_GRAIN_SYSTEM);
-  int svmAtomics= 0!=(caps & CL_DEVICE_SVM_ATOMICS);
-  printf("svmcoarse, %d", svmCoarse);
-  printf("svmbuffer, %d", svmFineBuffer);
-  printf("svmfinesys, %d", svmFineSystem);
-  printf("svmAtomics, %d", svmAtomics);
-  printf("svm cap, %d", caps);
-
-  // context
-  tv_CrContext_start = rdtsc();
-  context = clCreateContext(NULL, 1, &device_id[device], NULL, NULL, &ret);
-  tv_CrContext_end = rdtsc();
-
-  // command queue
-  Queue = clCreateCommandQueue(context, device_id[device], 0, &ret);
-  char source[20] = "gpuxxhash.cl";
-  char kern_name[20] = "gpuxxhash";
-
+  res = cuCtxCreate(&ctx, 0, dev);
+  if (res != CUDA_SUCCESS) {
+    printf("cuCtxCreate failed: res = %lu\n", (unsigned long)res);
+    return -1;
+  }
+  res = cuModuleLoad(&module, ptxfname);
+  if (res != CUDA_SUCCESS) {
+    printf("cuModuleLoad() failed\n");
+    return -1;
+  }
+  res = cuModuleGetFunction(&function, module, "_Z3addPjS_S_j");
+  if (res != CUDA_SUCCESS) {
+    printf("cuModuleGetFunction() failed\n");
+    return -1;
+  }
   printf("\nkernel name %s\n\n", source);
 
-  if ((fp = fopen(source, "r")) == NULL) {
-    sprintf(msg, "kernel source open error");
-    return 1;
-  }
-  source_size = fread(source_str, 1, MAX_SOURCE_SIZE, fp);
-  fclose(fp);
 
-  // program
-  program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &ret);
-  if (ret != CL_SUCCESS) {
-    sprintf(msg, "clCreateProgramWithSource() error");
-    return 1;
-  }
-
-  // build
-  ret = clBuildProgram(program, 1, &device_id[device], NULL, NULL, NULL);
-  if(ret != CL_SUCCESS) {
-    sprintf(msg, "clBuildProgram() error");
-    return -ret;
-  }
-
-  // kernel
-  tv_CrKernel_start = rdtsc();
-  k_vadd = clCreateKernel(program, kern_name, &ret);
-  tv_CrKernel_end = rdtsc();
-  if (ret != CL_SUCCESS) {
-    sprintf(msg, "clCreateKernel() error");
-    return 1;
-  }
-
-  tv_CrContext = tv_CrContext_end - tv_CrContext_start;
-  tv_CrKernel = tv_CrKernel_end - tv_CrKernel_start;
-
-
-  clReleaseProgram(program);
-  free(source_str);
 
   return 0;
 
